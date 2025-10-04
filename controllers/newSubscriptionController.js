@@ -290,10 +290,15 @@ exports.processPayment = asyncHandler(async (req, res) => {
 
     const payment = await createPaymentForSubscription(subscriptionId, paymentData, req.file);
     
-    console.log("Payment created successfully:", {
+    console.log("Received payment from createPaymentForSubscription:", {
+      paymentType: typeof payment,
+      isNull: payment === null,
+      isUndefined: payment === undefined,
+      hasId: !!payment?.id,
       paymentId: payment?.id,
       paymentAmount: payment?.amount,
-      paymentMethod: payment?.payment_method
+      paymentMethod: payment?.payment_method,
+      paymentKeys: payment ? Object.keys(payment) : 'no keys'
     });
 
     // Return the expected response format

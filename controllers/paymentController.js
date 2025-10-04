@@ -57,6 +57,12 @@ exports.createPaymentForSubscription = asyncHandler(async (subscriptionId, payme
     payment_method: createdPayment.payment_method
   });
   
+  console.log("About to return payment object:", {
+    hasId: !!createdPayment.id,
+    hasAmount: !!createdPayment.amount,
+    fullObject: createdPayment.toJSON ? createdPayment.toJSON() : createdPayment
+  });
+  
   return createdPayment;
 });
 
