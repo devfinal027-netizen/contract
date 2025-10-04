@@ -194,14 +194,41 @@ exports.processPayment = asyncHandler(async (req, res) => {
     });
   }
 
+  // Debug logging
+  console.log("Looking for subscription:", {
+    subscriptionId,
+    userId: req.user?.id,
+    userType: req.user?.type
+  });
+
+  // First, let's check if any subscription exists with this ID
+  const allSubscriptions = await Subscription.findAll({
+    where: { id: subscriptionId }
+  });
+  console.log("Direct query result:", {
+    count: allSubscriptions.length,
+    subscriptions: allSubscriptions.map(s => ({ id: s.id, passenger_id: s.passenger_id }))
+  });
+
   const subscription = await Subscription.findByPk(subscriptionId, {
     include: [{ model: Contract, as: "contract" }]
+  });
+  
+  console.log("Found subscription:", {
+    found: !!subscription,
+    subscriptionId: subscription?.id,
+    passengerId: subscription?.passenger_id,
+    status: subscription?.status
   });
   
   if (!subscription) {
     return res.status(404).json({
       success: false,
-      message: "Subscription not found"
+      message: "Subscription not found",
+      debug: {
+        searchedId: subscriptionId,
+        userId: req.user?.id
+      }
     });
   }
 
@@ -209,7 +236,12 @@ exports.processPayment = asyncHandler(async (req, res) => {
   if (req.user.type === "passenger" && subscription.passenger_id !== req.user.id) {
     return res.status(403).json({
       success: false,
-      message: "Access denied"
+      message: "Access denied",
+      debug: {
+        subscriptionPassengerId: subscription.passenger_id,
+        requestUserId: req.user.id,
+        userType: req.user.type
+      }
     });
   }
 
