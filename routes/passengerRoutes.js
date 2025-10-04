@@ -4,6 +4,12 @@ const controller = require("../controllers/passengerController");
 const { authorize } = require("../middleware/auth");
 
 // Passenger-specific routes
+// Convenience alias: current passenger
+router.get("/me/driver", authorize("admin", "passenger"), (req, res, next) => {
+  req.params.id = String(req.user.id);
+  return controller.getAssignedDriver(req, res, next);
+});
+
 router.get("/:id/driver", authorize("admin", "passenger"), controller.getAssignedDriver);
 router.get("/:id/trips", authorize("admin", "passenger"), controller.getTripHistory);
 

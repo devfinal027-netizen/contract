@@ -208,7 +208,7 @@ exports.getDriverTrips = asyncHandler(async (req, res) => {
   const { status, date_from, date_to } = req.query;
 
   // Check if user can access this driver's data
-  if (req.user.type === "driver" && req.user.id !== driverId) {
+  if (req.user.type === "driver" && String(req.user.id) !== String(driverId)) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
@@ -281,7 +281,7 @@ exports.getDriverSchedule = asyncHandler(async (req, res) => {
   const { date } = req.query;
 
   // Check if user can access this driver's data
-  if (req.user.type === "driver" && req.user.id !== driverId) {
+  if (req.user.type === "driver" && String(req.user.id) !== String(driverId)) {
     return res.status(403).json({ 
       success: false, 
       message: "Access denied",
