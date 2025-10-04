@@ -73,19 +73,22 @@ async function calculateSubscriptionFare(pickupLocation, dropoffLocation, pickup
 
     // Calculate multiplier based on contract type
     let multiplier = 1;
-    switch (contractType.toUpperCase()) {
-      case 'INDIVIDUAL':
-      case 'PREMIUM INDIVIDUAL':
+    
+    if (typeof contractTypeOrContract === 'object' && contractTypeOrContract.multiplier) {
+      // Use the multiplier field set by admin when creating contract types
+      multiplier = parseFloat(contractTypeOrContract.multiplier) || 1;
+    } else {
+      // Legacy mapping for string-based contract types
+      const typeName = contractType.toString().toUpperCase();
+      if (typeName.includes("INDIVIDUAL")) {
         multiplier = 1; // Per trip
-        break;
-      case 'GROUP':
+      } else if (typeName.includes("GROUP")) {
         multiplier = 7; // Weekly rate
-        break;
-      case 'INSTITUTIONAL':
+      } else if (typeName.includes("INSTITUTIONAL")) {
         multiplier = 30; // Monthly rate
-        break;
-      default:
+      } else {
         multiplier = 1; // Default to per trip
+      }
     }
 
     const totalFare = finalFare * multiplier;

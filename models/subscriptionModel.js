@@ -74,9 +74,13 @@ const Subscription = sequelize.define(
       type: DataTypes.DECIMAL(11, 8),
       allowNull: true,
     },
-    contract_type: {
-      type: DataTypes.ENUM("INDIVIDUAL", "GROUP", "INSTITUTIONAL"),
+    contract_type_id: {
+      type: DataTypes.UUID,
       allowNull: false,
+      references: {
+        model: 'contract_types',
+        key: 'id'
+      }
     },
     start_date: {
       type: DataTypes.DATEONLY,

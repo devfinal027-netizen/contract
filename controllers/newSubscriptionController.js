@@ -5,22 +5,21 @@ const { calculateSubscriptionFare, getAvailableContracts } = require("../service
 const { createPaymentForSubscription } = require("./paymentController");
 const { getUserInfo, populateUserFields } = require("../utils/tokenHelper");
 
-// Helper function to map contract type names to ENUM values
-function mapContractTypeToEnum(contractTypeName) {
-  if (!contractTypeName) return "INDIVIDUAL";
-  
-  const name = contractTypeName.toString().toUpperCase();
-  
-  if (name.includes("INDIVIDUAL")) {
-    return "INDIVIDUAL";
-  } else if (name.includes("GROUP")) {
-    return "GROUP";
-  } else if (name.includes("INSTITUTIONAL")) {
-    return "INSTITUTIONAL";
-  } else {
-    // Default to INDIVIDUAL for unknown types
-    return "INDIVIDUAL";
+// Helper function to get contract type ID from contract
+function getContractTypeId(contract) {
+  // If it's a virtual contract from ContractType, use the contract's ID
+  if (contract.contract_type_id) {
+    return contract.contract_type_id;
   }
+  // If it's a ContractType object, use its ID
+  if (contract.contractType && contract.contractType.id) {
+    return contract.contractType.id;
+  }
+  // If it's the contract ID itself (when using contract type ID as contract_id)
+  if (contract.id) {
+    return contract.id;
+  }
+  return null;
 }
 
 // POST /subscription/create - Create subscription with fare estimation
@@ -115,7 +114,7 @@ exports.createSubscription = asyncHandler(async (req, res) => {
       pickup_longitude: pickup_longitude || null,
       dropoff_latitude: dropoff_latitude || null,
       dropoff_longitude: dropoff_longitude || null,
-      contract_type: mapContractTypeToEnum(contract.contractType?.name || contract.contract_type),
+      contract_type_id: getContractTypeId(contract),
       start_date,
       end_date,
       fare: fareResult.data.base_fare,

@@ -52,6 +52,15 @@ const ContractType = sequelize.define("ContractType", {
       min: 1
     }
   },
+  multiplier: {
+    type: DataTypes.DECIMAL(5, 2),
+    allowNull: false,
+    defaultValue: 1.00,
+    validate: {
+      min: 0.01
+    },
+    comment: "Multiplier for fare calculation (e.g., 1.0 for per trip, 7.0 for weekly, 30.0 for monthly)"
+  },
   features: {
     type: DataTypes.JSON,
     allowNull: true,

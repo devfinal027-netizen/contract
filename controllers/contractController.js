@@ -293,6 +293,7 @@ exports.getContractsByType = asyncHandler(async (req, res) => {
         discount_percentage: contractType.discount_percentage,
         minimum_fare: contractType.minimum_fare,
         maximum_passengers: contractType.maximum_passengers,
+        multiplier: contractType.multiplier,
         features: contractType.features,
         is_active: contractType.is_active,
         contract_type_id: contractType.id,

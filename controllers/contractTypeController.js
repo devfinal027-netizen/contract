@@ -10,6 +10,7 @@ exports.createContractType = asyncHandler(async (req, res) => {
     discount_percentage,
     minimum_fare,
     maximum_passengers,
+    multiplier = 1.00,
     features,
     is_active = true
   } = req.body;
@@ -41,6 +42,7 @@ exports.createContractType = asyncHandler(async (req, res) => {
     discount_percentage: parseFloat(discount_percentage) || 0.00,
     minimum_fare: parseFloat(minimum_fare) || 0.00,
     maximum_passengers: maximum_passengers ? parseInt(maximum_passengers) : null,
+    multiplier: parseFloat(multiplier) || 1.00,
     features: features || {},
     is_active: Boolean(is_active),
     created_by: req.user.id
@@ -120,6 +122,7 @@ exports.updateContractType = asyncHandler(async (req, res) => {
     discount_percentage,
     minimum_fare,
     maximum_passengers,
+    multiplier,
     features,
     is_active
   } = req.body;
@@ -148,6 +151,7 @@ exports.updateContractType = asyncHandler(async (req, res) => {
   if (discount_percentage !== undefined) updateData.discount_percentage = parseFloat(discount_percentage) || 0.00;
   if (minimum_fare !== undefined) updateData.minimum_fare = parseFloat(minimum_fare) || 0.00;
   if (maximum_passengers !== undefined) updateData.maximum_passengers = maximum_passengers ? parseInt(maximum_passengers) : null;
+  if (multiplier !== undefined) updateData.multiplier = parseFloat(multiplier) || 1.00;
   if (features !== undefined) updateData.features = features || {};
   if (is_active !== undefined) updateData.is_active = Boolean(is_active);
 

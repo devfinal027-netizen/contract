@@ -123,6 +123,18 @@ ContractType.hasMany(Contract, {
   as: "contracts",
 });
 
+// Subscription ↔ ContractType (N:1)
+Subscription.belongsTo(ContractType, {
+  foreignKey: "contract_type_id",
+  as: "contractType",
+  onDelete: "RESTRICT",
+  onUpdate: "CASCADE",
+});
+ContractType.hasMany(Subscription, {
+  foreignKey: "contract_type_id",
+  as: "subscriptions",
+});
+
 // Payment ↔ Passenger (external reference → user service)
 // Subscription ↔ Passenger (external reference → user service)
 // RideSchedule ↔ Driver (external reference → driver service)
