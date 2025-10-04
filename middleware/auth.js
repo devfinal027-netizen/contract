@@ -51,27 +51,22 @@ const authorize = (...allowedTypes) => {
         .json({ message: "Forbidden: No user information found." });
     }
 
-    // Compute effective user type from several possible token shapes
-    let effectiveType = normalizeRole(req.user.type) || normalizeRole(req.user.role);
-
-    // If still missing, look into roles array (strings or objects)
-    if (!effectiveType && Array.isArray(req.user.roles)) {
-      const roleNames = req.user.roles
-        .map((r) => (typeof r === "object" ? r.name || r.role : r))
-        .filter(Boolean)
-        .map((r) => normalizeRole(r));
-
-      // Prefer superadmin > admin > others
-      if (roleNames.includes("superadmin")) effectiveType = "superadmin";
-      else if (roleNames.includes("admin")) effectiveType = "admin";
-      else if (roleNames.includes("driver")) effectiveType = "driver";
-      else if (roleNames.includes("passenger")) effectiveType = "passenger";
+    // Collect all possible type/role signals
+    const roleCandidates = [];
+    const pushIf = (v) => { const n = normalizeRole(v); if (n) roleCandidates.push(n); };
+    pushIf(req.user.type);
+    pushIf(req.user.role);
+    if (Array.isArray(req.user.roles)) {
+      req.user.roles.forEach((r) => pushIf(typeof r === "object" ? (r.name || r.role) : r));
     }
+    if (req.user.isAdmin || req.user.is_admin) roleCandidates.push("admin");
 
-    // Heuristics: booleans sometimes exist
-    if (!effectiveType && (req.user.isAdmin || req.user.is_admin)) {
-      effectiveType = "admin";
-    }
+    // Determine effective type with privilege precedence
+    let effectiveType = "";
+    if (roleCandidates.includes("superadmin")) effectiveType = "superadmin";
+    else if (roleCandidates.includes("admin")) effectiveType = "admin";
+    else if (roleCandidates.includes("driver")) effectiveType = "driver";
+    else if (roleCandidates.includes("passenger")) effectiveType = "passenger";
 
     // Persist normalized type on request for downstream handlers
     if (effectiveType) req.user.type = effectiveType;
