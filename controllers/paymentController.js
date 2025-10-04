@@ -27,7 +27,10 @@ exports.createPaymentForSubscription = asyncHandler(async (subscriptionId, payme
     admin_approved: false,
   };
 
-  if (file) {
+  // Handle receipt image from form data or file upload
+  if (paymentData.receipt_image) {
+    payment.receipt_image = paymentData.receipt_image;
+  } else if (file) {
     payment.receipt_image = path.join("uploads", "payments", file.filename);
   }
 

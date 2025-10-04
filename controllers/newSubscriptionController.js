@@ -164,15 +164,16 @@ exports.processPayment = asyncHandler(async (req, res) => {
     method: req.method
   });
   
-  // Check if request body exists
-  if (!req.body) {
+  // Check if request body exists (handle both JSON and multipart/form-data)
+  if (!req.body || Object.keys(req.body).length === 0) {
     return res.status(400).json({
       success: false,
-      message: "Request body is required. Please include Content-Type: application/json header.",
+      message: "Request body is required. Please include payment data.",
       debug: {
         contentType: req.headers['content-type'],
         method: req.method,
-        hasBody: !!req.body
+        hasBody: !!req.body,
+        bodyKeys: req.body ? Object.keys(req.body) : []
       }
     });
   }
@@ -186,6 +187,12 @@ exports.processPayment = asyncHandler(async (req, res) => {
     status = "PENDING",
     subscription_id 
   } = req.body;
+
+  // Handle receipt image from form data or file upload
+  let receiptImagePath = receipt_image;
+  if (req.file) {
+    receiptImagePath = `uploads/payments/${req.file.filename}`;
+  }
 
   if (!payment_method) {
     return res.status(400).json({
@@ -260,7 +267,8 @@ exports.processPayment = asyncHandler(async (req, res) => {
       payment_method,
       transaction_reference,
       due_date: due_date ? new Date(due_date) : new Date(),
-      status: status
+      status: status,
+      receipt_image: receiptImagePath
     };
 
     const payment = await createPaymentForSubscription(subscriptionId, paymentData, req.file);
