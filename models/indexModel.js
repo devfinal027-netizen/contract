@@ -167,12 +167,17 @@ const syncDB = async () => {
     await Contract.sync({ alter: true });
     console.log("✅ Contract table synced successfully!");
 
-    // Force recreate subscription table due to breaking schema change (contract_id nullable)
+    // First, force recreate Payment table to remove foreign key constraints
+    await Payment.sync({ force: true });
+    console.log("✅ Payment table synced successfully!");
+
+    // Then force recreate subscription table due to breaking schema change (contract_id nullable)
     await Subscription.sync({ force: true });
     console.log("✅ Subscription table synced successfully!");
 
+    // Finally, sync Payment table again to recreate foreign key constraints
     await Payment.sync({ alter: true });
-    console.log("✅ Payment table synced successfully!");
+    console.log("✅ Payment table foreign keys synced successfully!");
 
     await RideSchedule.sync({ alter: true });
     console.log("✅ RideSchedule table synced successfully!");
