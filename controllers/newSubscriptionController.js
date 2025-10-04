@@ -281,7 +281,20 @@ exports.processPayment = asyncHandler(async (req, res) => {
       receipt_image: receiptImagePath
     };
 
+    console.log("Creating payment with data:", {
+      subscriptionId,
+      paymentData,
+      hasFile: !!req.file,
+      subscriptionFinalFare: subscription.final_fare
+    });
+
     const payment = await createPaymentForSubscription(subscriptionId, paymentData, req.file);
+    
+    console.log("Payment created successfully:", {
+      paymentId: payment?.id,
+      paymentAmount: payment?.amount,
+      paymentMethod: payment?.payment_method
+    });
 
     // Return the expected response format
     res.json({
@@ -299,10 +312,26 @@ exports.processPayment = asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
+    console.error("Error in processPayment:", {
+      error: error.message,
+      stack: error.stack,
+      subscriptionId,
+      paymentData: {
+        payment_method,
+        amount,
+        transaction_reference
+      }
+    });
+    
     return res.status(500).json({
       success: false,
       message: "Error processing payment",
-      error: error.message
+      error: error.message,
+      debug: {
+        subscriptionId,
+        errorType: error.name,
+        errorCode: error.code
+      }
     });
   }
 });

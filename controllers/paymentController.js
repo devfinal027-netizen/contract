@@ -6,9 +6,22 @@ const { getPassengerById, getAdminById } = require("../utils/userService");
 
 // CREATE payment for subscription (used by newSubscriptionController)
 exports.createPaymentForSubscription = asyncHandler(async (subscriptionId, paymentData, file = null) => {
+  console.log("createPaymentForSubscription called with:", {
+    subscriptionId,
+    paymentData,
+    hasFile: !!file
+  });
+
   // Get subscription details
   const subscription = await Subscription.findByPk(subscriptionId, {
     include: [{ model: Contract, as: "contract" }]
+  });
+
+  console.log("Subscription found in createPaymentForSubscription:", {
+    found: !!subscription,
+    subscriptionId: subscription?.id,
+    contractId: subscription?.contract_id,
+    passengerId: subscription?.passenger_id
   });
 
   if (!subscription) {
@@ -34,7 +47,16 @@ exports.createPaymentForSubscription = asyncHandler(async (subscriptionId, payme
     payment.receipt_image = path.join("uploads", "payments", file.filename);
   }
 
+  console.log("About to create payment with data:", payment);
+  
   const createdPayment = await Payment.create(payment);
+  
+  console.log("Payment created successfully:", {
+    id: createdPayment.id,
+    amount: createdPayment.amount,
+    payment_method: createdPayment.payment_method
+  });
+  
   return createdPayment;
 });
 
