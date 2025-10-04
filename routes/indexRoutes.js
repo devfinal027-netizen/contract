@@ -40,8 +40,9 @@ router.use("/contract-types", contractTypeRoutes);
 
 // New workflow routes
 router.use("/subscription", newSubscriptionRoutes);
-router.use("/passenger", newPassengerRoutes);
-router.use("/admin", newAdminRoutes);
+// Note: /passenger and /admin routes are already registered above
+// router.use("/passenger", newPassengerRoutes);
+// router.use("/admin", newAdminRoutes);
 router.use("/driver", newDriverRoutes);
 
 // Export the main router
