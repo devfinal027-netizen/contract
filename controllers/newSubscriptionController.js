@@ -205,6 +205,7 @@ exports.processPayment = asyncHandler(async (req, res) => {
   console.log("Looking for subscription:", {
     subscriptionId,
     userId: req.user?.id,
+    userIdType: typeof req.user?.id,
     userType: req.user?.type
   });
 
@@ -225,7 +226,9 @@ exports.processPayment = asyncHandler(async (req, res) => {
     found: !!subscription,
     subscriptionId: subscription?.id,
     passengerId: subscription?.passenger_id,
-    status: subscription?.status
+    passengerIdType: typeof subscription?.passenger_id,
+    status: subscription?.status,
+    paymentStatus: subscription?.payment_status
   });
   
   if (!subscription) {
@@ -240,14 +243,21 @@ exports.processPayment = asyncHandler(async (req, res) => {
   }
 
   // Check if user can access this subscription
-  if (req.user.type === "passenger" && subscription.passenger_id !== req.user.id) {
+  // Convert both IDs to strings for comparison to handle type mismatches
+  const subscriptionPassengerId = String(subscription.passenger_id);
+  const requestUserId = String(req.user.id);
+  
+  if (req.user.type === "passenger" && subscriptionPassengerId !== requestUserId) {
     return res.status(403).json({
       success: false,
       message: "Access denied",
       debug: {
         subscriptionPassengerId: subscription.passenger_id,
         requestUserId: req.user.id,
-        userType: req.user.type
+        userType: req.user.type,
+        subscriptionPassengerIdStr: subscriptionPassengerId,
+        requestUserIdStr: requestUserId,
+        typesMatch: subscriptionPassengerId === requestUserId
       }
     });
   }
