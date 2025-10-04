@@ -167,7 +167,8 @@ const syncDB = async () => {
     await Contract.sync({ alter: true });
     console.log("✅ Contract table synced successfully!");
 
-    await Subscription.sync({ alter: true });
+    // Force recreate subscription table due to breaking schema change (contract_id nullable)
+    await Subscription.sync({ force: true });
     console.log("✅ Subscription table synced successfully!");
 
     await Payment.sync({ alter: true });
