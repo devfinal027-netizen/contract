@@ -38,6 +38,8 @@ router.use("/trip", tripRoutes);
 router.use("/passenger", passengerRoutes);
 router.use("/driver", driverRoutes);
 router.use("/admin", adminRoutes);
+// Mount v2 admin routes under both /admin and /admin/v2 for compatibility
+router.use("/admin", newAdminRoutes);
 
 // New workflow routes
 router.use("/subscription", newSubscriptionRoutes);

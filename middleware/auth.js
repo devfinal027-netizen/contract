@@ -27,6 +27,23 @@ const authenticate = (req, res, next) => {
  * Uses the 'type' field for authorization since 'roles' is only for superadmin
  */
 const authorize = (...allowedTypes) => {
+  // Normalize allowed types to lower-case for case-insensitive matching
+  const normalizedAllowed = (allowedTypes || []).map((t) => String(t).toLowerCase());
+
+  // Helper to normalize a single role/type token into canonical form
+  const normalizeRole = (value) => {
+    if (!value) return undefined;
+    let raw = String(value).toLowerCase();
+    // Strip common prefixes and separators: ROLE_ADMIN, SUPER_ADMIN, etc.
+    raw = raw.replace(/^role[_-]/, "").replace(/[^a-z]/g, "");
+    if (raw.startsWith("superadmin") || raw === "superadministrator") return "superadmin";
+    if (raw === "administrator" || raw.startsWith("admin")) return "admin";
+    if (raw.startsWith("driver")) return "driver";
+    if (raw.startsWith("passenger") || raw === "rider") return "passenger";
+    if (raw === "staff" || raw === "operator") return "admin"; // treat staff/operator as admin for authorization
+    return raw; // fallback
+  };
+
   return (req, res, next) => {
     if (!req.user) {
       return res
@@ -34,49 +51,49 @@ const authorize = (...allowedTypes) => {
         .json({ message: "Forbidden: No user information found." });
     }
 
-    // Infer user type from token if missing or inconsistent
-    let userType = req.user.type;
-    if (!userType && Array.isArray(req.user.roles)) {
-      const roleNames = req.user.roles.map(r => (typeof r === 'object' ? r.name : r));
-      if (roleNames.includes('driver')) userType = 'driver';
-      else if (roleNames.includes('passenger')) userType = 'passenger';
-      else if (roleNames.includes('admin') || roleNames.includes('superadmin')) userType = 'admin';
-      req.user.type = userType;
+    // Compute effective user type from several possible token shapes
+    let effectiveType = normalizeRole(req.user.type) || normalizeRole(req.user.role);
+
+    // If still missing, look into roles array (strings or objects)
+    if (!effectiveType && Array.isArray(req.user.roles)) {
+      const roleNames = req.user.roles
+        .map((r) => (typeof r === "object" ? r.name || r.role : r))
+        .filter(Boolean)
+        .map((r) => normalizeRole(r));
+
+      // Prefer superadmin > admin > others
+      if (roleNames.includes("superadmin")) effectiveType = "superadmin";
+      else if (roleNames.includes("admin")) effectiveType = "admin";
+      else if (roleNames.includes("driver")) effectiveType = "driver";
+      else if (roleNames.includes("passenger")) effectiveType = "passenger";
     }
 
-    // If an endpoint allows admin, also allow superadmin
-    if (allowedTypes.includes("admin") && (userType === "admin" || userType === "superadmin")) {
+    // Heuristics: booleans sometimes exist
+    if (!effectiveType && (req.user.isAdmin || req.user.is_admin)) {
+      effectiveType = "admin";
+    }
+
+    // Persist normalized type on request for downstream handlers
+    if (effectiveType) req.user.type = effectiveType;
+
+    // If endpoint allows admin, also allow superadmin
+    if (normalizedAllowed.includes("admin") && (effectiveType === "admin" || effectiveType === "superadmin")) {
       return next();
     }
 
-    // For superadmin, we need to check the roles array
-    if (
-      userType === "admin" &&
-      Array.isArray(req.user.roles) &&
-      req.user.roles.length > 0
-    ) {
-      const userRoleNames = req.user.roles.map((role) =>
-        typeof role === "object" ? role.name : role
-      );
-
-      // If user has superadmin role, allow access to admin endpoints
-      if (
-        userRoleNames.includes("superadmin") &&
-        allowedTypes.includes("admin")
-      ) {
-        return next();
-      }
+    // Strict superadmin endpoints
+    if (normalizedAllowed.includes("superadmin") && effectiveType === "superadmin") {
+      return next();
     }
 
-    // For all other users, check the type field directly
-    if (allowedTypes.includes(userType)) {
-      next();
-    } else {
-      return res.status(403).json({
-        message:
-          "Forbidden: You do not have permission to access this resource.",
-      });
+    // For all other user types, check direct inclusion
+    if (effectiveType && normalizedAllowed.includes(effectiveType)) {
+      return next();
     }
+
+    return res.status(403).json({
+      message: "Forbidden: You do not have permission to access this resource.",
+    });
   };
 };
 
