@@ -41,9 +41,9 @@ router.use("/admin", adminRoutes);
 
 // New workflow routes
 router.use("/subscription", newSubscriptionRoutes);
-// Note: /passenger and /admin routes are already registered above
+// Note: /passenger routes are already registered above
 // router.use("/passenger", newPassengerRoutes);
-// router.use("/admin", newAdminRoutes);
+router.use("/admin/v2", newAdminRoutes);
 router.use("/driver", newDriverRoutes);
 
 // Export the main router
