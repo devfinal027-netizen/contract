@@ -58,14 +58,18 @@ Payment.belongsTo(Subscription, {
   onUpdate: "CASCADE",
 });
 
-// Contract ↔ Subscription (1:N)
+// Contract ↔ Subscription (1:N) - Optional relationship
 Contract.hasMany(Subscription, {
   foreignKey: "contract_id",
   as: "subscriptions",
+  onDelete: "SET NULL",
+  onUpdate: "CASCADE",
 });
 Subscription.belongsTo(Contract, {
   foreignKey: "contract_id",
   as: "contract",
+  onDelete: "SET NULL",
+  onUpdate: "CASCADE",
 });
 
 // Contract ↔ RideSchedule (1:N)
