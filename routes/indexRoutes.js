@@ -25,6 +25,8 @@ const newDriverRoutes = require("./newDriverRoutes");
 router.use(authenticate);
 
 // Mount routes with appropriate prefixes
+// IMPORTANT: /contract-types must be registered BEFORE /contracts to avoid route conflicts
+router.use("/contract-types", contractTypeRoutes);
 router.use("/discounts", authorize("admin"), discountRoutes);
 router.use("/contracts", contractRoutes);
 router.use("/payments", paymentRoutes);
@@ -36,7 +38,6 @@ router.use("/trip", tripRoutes);
 router.use("/passenger", passengerRoutes);
 router.use("/driver", driverRoutes);
 router.use("/admin", adminRoutes);
-router.use("/contract-types", contractTypeRoutes);
 
 // New workflow routes
 router.use("/subscription", newSubscriptionRoutes);
