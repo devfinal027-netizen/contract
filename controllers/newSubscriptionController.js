@@ -5,6 +5,24 @@ const { calculateSubscriptionFare, getAvailableContracts } = require("../service
 const { createPaymentForSubscription } = require("./paymentController");
 const { getUserInfo, populateUserFields } = require("../utils/tokenHelper");
 
+// Helper function to map contract type names to ENUM values
+function mapContractTypeToEnum(contractTypeName) {
+  if (!contractTypeName) return "INDIVIDUAL";
+  
+  const name = contractTypeName.toString().toUpperCase();
+  
+  if (name.includes("INDIVIDUAL")) {
+    return "INDIVIDUAL";
+  } else if (name.includes("GROUP")) {
+    return "GROUP";
+  } else if (name.includes("INSTITUTIONAL")) {
+    return "INSTITUTIONAL";
+  } else {
+    // Default to INDIVIDUAL for unknown types
+    return "INDIVIDUAL";
+  }
+}
+
 // POST /subscription/create - Create subscription with fare estimation
 exports.createSubscription = asyncHandler(async (req, res) => {
   const {
@@ -97,7 +115,7 @@ exports.createSubscription = asyncHandler(async (req, res) => {
       pickup_longitude: pickup_longitude || null,
       dropoff_latitude: dropoff_latitude || null,
       dropoff_longitude: dropoff_longitude || null,
-      contract_type: contract.contract_type,
+      contract_type: mapContractTypeToEnum(contract.contractType?.name || contract.contract_type),
       start_date,
       end_date,
       fare: fareResult.data.base_fare,
