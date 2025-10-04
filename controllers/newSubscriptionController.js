@@ -1,4 +1,4 @@
-const { Subscription, Contract, ContractSettings } = require("../models/indexModel");
+const { Subscription, Contract, ContractSettings, ContractType } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
 const { getPassengerById, getDriverById } = require("../utils/userService");
 const { calculateSubscriptionFare, getAvailableContracts } = require("../services/subscriptionService");
@@ -35,15 +35,28 @@ exports.createSubscription = asyncHandler(async (req, res) => {
   }
 
   // Validate contract exists and is active
-  const contract = await Contract.findOne({
+  let contract = await Contract.findOne({
     where: { id: contract_id, status: 'ACTIVE' }
   });
 
+  // If no contract found, check if it's a contract type ID
   if (!contract) {
-    return res.status(404).json({
-      success: false,
-      message: "Contract not found or not active"
-    });
+    const contractType = await ContractType.findByPk(contract_id);
+    if (contractType && contractType.is_active) {
+      // Create a virtual contract from contract type
+      contract = {
+        id: contractType.id,
+        contract_type_id: contractType.id,
+        cost: contractType.base_price_per_km,
+        status: 'ACTIVE',
+        contractType: contractType
+      };
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found or not active"
+      });
+    }
   }
 
   // Get passenger ID from authenticated user

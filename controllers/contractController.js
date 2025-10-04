@@ -250,10 +250,10 @@ exports.getActiveContracts = asyncHandler(async (req, res) => {
 
 // NEW: Get contracts by contract type ID
 exports.getContractsByType = asyncHandler(async (req, res) => {
-  const { contractId } = req.params;
+  const { contractTypeId } = req.params;
   
   // Validate contract type exists
-  const contractType = await ContractType.findByPk(contractId);
+  const contractType = await ContractType.findByPk(contractTypeId);
   if (!contractType) {
     return res.status(404).json({
       success: false,
@@ -261,8 +261,16 @@ exports.getContractsByType = asyncHandler(async (req, res) => {
     });
   }
 
+  // Check if contract type is active
+  if (!contractType.is_active) {
+    return res.status(400).json({
+      success: false,
+      message: "Contract type is not active"
+    });
+  }
+
   const contracts = await Contract.findAll({
-    where: { contract_type_id: contractId },
+    where: { contract_type_id: contractTypeId },
     include: [
       "discount", 
       "subscriptions", 
@@ -271,6 +279,30 @@ exports.getContractsByType = asyncHandler(async (req, res) => {
       { model: ContractType, as: "contractType" }
     ],
   });
+  
+  // If no contracts exist for this type, return the contract type info
+  // This allows the system to work with contract types directly
+  if (contracts.length === 0) {
+    return res.json({ 
+      success: true, 
+      data: [{
+        id: contractType.id,
+        name: contractType.name,
+        description: contractType.description,
+        base_price_per_km: contractType.base_price_per_km,
+        discount_percentage: contractType.discount_percentage,
+        minimum_fare: contractType.minimum_fare,
+        maximum_passengers: contractType.maximum_passengers,
+        features: contractType.features,
+        is_active: contractType.is_active,
+        contract_type_id: contractType.id,
+        status: "ACTIVE", // Treat contract type as active contract
+        cost: contractType.base_price_per_km,
+        created_at: contractType.createdAt,
+        updated_at: contractType.updatedAt
+      }]
+    });
+  }
   
   res.json({ success: true, data: contracts });
 });
