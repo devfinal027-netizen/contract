@@ -67,6 +67,9 @@ exports.createSubscription = asyncHandler(async (req, res) => {
     const passengerInfo = await getUserInfo(req, passengerId, 'passenger');
 
     // Calculate fare estimation
+    // Pass the contract type object or contract type string
+    const contractTypeForFare = contract.contractType || contract.contract_type || contract;
+    
     const fareResult = await calculateSubscriptionFare(
       pickup_location,
       dropoff_location,
@@ -74,7 +77,7 @@ exports.createSubscription = asyncHandler(async (req, res) => {
       pickup_longitude,
       dropoff_latitude,
       dropoff_longitude,
-      contract.contract_type
+      contractTypeForFare
     );
 
     if (!fareResult.success) {
