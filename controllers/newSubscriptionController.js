@@ -177,7 +177,15 @@ exports.processPayment = asyncHandler(async (req, res) => {
     });
   }
   
-  const { payment_method, transaction_reference, amount } = req.body;
+  const { 
+    payment_method, 
+    transaction_reference, 
+    amount, 
+    due_date, 
+    receipt_image, 
+    status = "PENDING",
+    subscription_id 
+  } = req.body;
 
   if (!payment_method) {
     return res.status(400).json({
@@ -219,37 +227,25 @@ exports.processPayment = asyncHandler(async (req, res) => {
       amount: amount || subscription.final_fare,
       payment_method,
       transaction_reference,
-      due_date: new Date()
+      due_date: due_date ? new Date(due_date) : new Date(),
+      status: status
     };
 
     const payment = await createPaymentForSubscription(subscriptionId, paymentData, req.file);
 
-    // Get passenger details for response
-    const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-    let passengerInfo = null;
-    try {
-      passengerInfo = await getPassengerById(subscription.passenger_id, authHeader);
-    } catch (_) {}
-
+    // Return the expected response format
     res.json({
       success: true,
-      message: "Payment submitted for admin approval",
       data: {
-        subscription: {
-          ...subscription.toJSON(),
-          passenger_name: passengerInfo?.name || null,
-          passenger_phone: passengerInfo?.phone || null,
-          passenger_email: passengerInfo?.email || null,
-        },
-        payment: {
-          id: payment.id,
-          amount: payment.amount,
-          method: payment.payment_method,
-          transaction_reference: payment.transaction_reference,
-          status: "PENDING",
-          admin_approved: false,
-          submitted_at: payment.createdAt
-        }
+        id: payment.id,
+        contract_id: payment.contract_id,
+        passenger_id: payment.passenger_id,
+        payment_method: payment.payment_method,
+        due_date: payment.due_date,
+        transaction_reference: payment.transaction_reference,
+        status: payment.status,
+        receipt_image: payment.receipt_image,
+        createdAt: payment.createdAt
       }
     });
   } catch (error) {
@@ -259,6 +255,58 @@ exports.processPayment = asyncHandler(async (req, res) => {
       error: error.message
     });
   }
+});
+
+// GET /subscriptions/pending - Get all pending subscriptions (Admin only)
+exports.getPendingSubscriptions = asyncHandler(async (req, res) => {
+  // Check if user is admin
+  if (req.user.type !== "admin" && req.user.type !== "superadmin") {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Admin privileges required."
+    });
+  }
+
+  const pendingSubscriptions = await Subscription.findAll({
+    where: {
+      status: "PENDING"
+    },
+    include: [
+      { model: Contract, as: "contract" },
+      { model: ContractType, as: "contractType" }
+    ],
+    order: [['createdAt', 'ASC']]
+  });
+
+  // Enrich with passenger info
+  const uniquePassengerIds = [...new Set(pendingSubscriptions.map(s => s.passenger_id).filter(Boolean))];
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+  const passengerInfoMap = new Map();
+  
+  await Promise.all(uniquePassengerIds.map(async (pid) => {
+    try {
+      const info = await getPassengerById(pid, authHeader);
+      if (info) passengerInfoMap.set(pid, info);
+    } catch (_) {}
+  }));
+
+  const enriched = pendingSubscriptions.map(subscription => {
+    const info = passengerInfoMap.get(subscription.passenger_id);
+    return {
+      ...subscription.toJSON(),
+      passenger_name: info?.name || null,
+      passenger_phone: info?.phone || null,
+      passenger_email: info?.email || null,
+    };
+  });
+
+  res.json({
+    success: true,
+    data: {
+      pending_subscriptions: enriched,
+      total_count: enriched.length
+    }
+  });
 });
 
 // GET /passenger/:id/subscriptions - Get passenger's subscriptions (active and history)

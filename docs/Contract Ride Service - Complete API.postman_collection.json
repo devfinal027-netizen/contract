@@ -376,7 +376,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"transaction_reference\": \"PAY-123456789\",\n  \"amount\": 4218.60\n}"
+							"raw": "{\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"transaction_reference\": \"REF123456\",\n  \"amount\": 1500.00,\n  \"due_date\": \"2024-02-15\",\n  \"receipt_image\": \"uploads/payments/wave_color.jpg-1756394581553-981825363.jpg\",\n  \"status\": \"PENDING\",\n  \"subscription_id\": \"{{subscriptionId}}\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/subscription/{{subscriptionId}}/payment",
@@ -419,7 +419,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"message\": \"Payment submitted for admin approval\",\n  \"data\": {\n    \"subscription\": {\n      \"id\": \"uuid-here\",\n      \"passenger_id\": \"passenger-uuid\",\n      \"passenger_name\": \"John Doe\",\n      \"passenger_phone\": \"+251911234567\",\n      \"passenger_email\": \"john@example.com\",\n      \"status\": \"PENDING\",\n      \"payment_status\": \"PENDING\"\n    },\n    \"payment\": {\n      \"id\": \"payment-uuid-123\",\n      \"amount\": 4218.60,\n      \"method\": \"BANK_TRANSFER\",\n      \"transaction_reference\": \"PAY-123456789\",\n      \"status\": \"PENDING\",\n      \"admin_approved\": false,\n      \"submitted_at\": \"2024-01-15T10:00:00.000Z\"\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"3d4bb5a9-0802-463b-831e-be57ec2708f7\",\n    \"contract_id\": \"8fabe5fa-33f4-4c6e-8263-e6ca613044e5\",\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"payment_method\": \"BANK_TRANSFER\",\n    \"due_date\": \"2024-02-15\",\n    \"transaction_reference\": \"REF123456\",\n    \"status\": \"PENDING\",\n    \"receipt_image\": \"uploads/payments/wave_color.jpg-1756394581553-981825363.jpg\",\n    \"createdAt\": \"2025-08-28T15:23:01.604Z\"\n  }\n}"
 						}
 					]
 				},
@@ -1526,6 +1526,53 @@
 							],
 							"cookie": [],
 							"body": "{\n  \"success\": true,\n  \"message\": \"Payment rejected\",\n  \"data\": {\n    \"payment_id\": \"payment-uuid-1\",\n    \"rejected_by\": \"Admin Name\",\n    \"rejected_at\": \"2024-01-15T10:30:00.000Z\",\n    \"rejection_reason\": \"Invalid transaction reference\",\n    \"subscription_status\": \"PENDING\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Pending Subscriptions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/subscription/pending",
+							"host": ["{{baseUrl}}"],
+							"path": ["subscription", "pending"]
+						}
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/subscription/pending",
+									"host": ["{{baseUrl}}"],
+									"path": ["subscription", "pending"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"pending_subscriptions\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-123\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"+251911234567\",\n        \"passenger_email\": \"john@example.com\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"start_date\": \"2024-01-01\",\n        \"end_date\": \"2024-01-31\",\n        \"status\": \"PENDING\",\n        \"payment_status\": \"PENDING\",\n        \"createdAt\": \"2024-01-15T10:00:00.000Z\"\n      }\n    ],\n    \"total_count\": 1\n  }\n}"
 						}
 					]
 				},

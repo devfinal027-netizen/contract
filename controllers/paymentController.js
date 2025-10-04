@@ -23,7 +23,7 @@ exports.createPaymentForSubscription = asyncHandler(async (subscriptionId, payme
     payment_method: paymentData.payment_method,
     transaction_reference: paymentData.transaction_reference,
     due_date: paymentData.due_date || new Date(),
-    status: "PENDING",
+    status: paymentData.status || "PENDING",
     admin_approved: false,
   };
 
