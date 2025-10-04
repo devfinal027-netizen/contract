@@ -101,9 +101,12 @@ exports.createSubscription = asyncHandler(async (req, res) => {
       return res.status(400).json(fareResult);
     }
 
+    // Determine if we're using a contract type directly or an actual contract
+    const isUsingContractTypeDirectly = contract.id === contract_id && contract.contract_type_id === contract_id;
+    
     // Create subscription with PENDING status and passenger info
     const subscriptionData = {
-      contract_id: contract_id,
+      contract_id: isUsingContractTypeDirectly ? null : contract_id, // Set to null if using contract type directly
       passenger_id: passengerId,
       passenger_name: passengerInfo?.name || null,
       passenger_phone: passengerInfo?.phone || null,

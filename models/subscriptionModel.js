@@ -12,7 +12,7 @@ const Subscription = sequelize.define(
     },
     contract_id: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true, // Allow null when using contract types directly
     },
     passenger_id: {
       type: DataTypes.UUID,
