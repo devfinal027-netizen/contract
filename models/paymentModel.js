@@ -33,7 +33,7 @@ const Payment = sequelize.define(
       allowNull: false,
     },
     payment_method: {
-      type: DataTypes.ENUM("BANK_TRANSFER", "MOBILE_MONEY", "CASH", "CARD"),
+      type: DataTypes.ENUM("BANK_TRANSFER", "MOBILE_MONEY", "CASH", "CARD", "TELEBIRR", "AMOLE", "CHAPA", "HELLO_CASH"),
     },
     due_date: {
       type: DataTypes.DATEONLY,
