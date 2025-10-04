@@ -1,0 +1,24 @@
+# Database Configuration
+DB_HOST=localhost
+DB_NAME=contract_service_db
+DB_USER=root
+DB_PASSWORD=123
+
+# Server Configuration
+PORT=3000
+
+JWT_SECRET=
+JWT_EXPIRES_IN=7d
+
+# Auth/User Service Integration
+AUTH_BASE_URL=https://authservice.capitalinvestmenttradingplc.com/api
+PASSENGER_LOOKUP_URL_TEMPLATE=${AUTH_BASE_URL}/passengers/{id}
+DRIVER_LOOKUP_URL_TEMPLATE=${AUTH_BASE_URL}/drivers/{id}
+AUTH_SERVICE_BEARER=G/RzOmjHpE/SD5P4oP9B6j?JWLpP8byIJ1JqKt0F38/fGcUMV=aAt6O!g=bT0fV!!7EEsx/DazkAFGsf5FedVawUR=9UWjOFYrnCAGUeCFeictOdC51WmPQFvcPHxkoK
+# Optional extraction paths
+PASSENGER_NAME_PATHS=user.fullName,profile.name,name
+PASSENGER_PHONE_PATHS=user.msisdn,phone,profile.phone
+# JWT verification via JWKS (optional)
+# AUTH_JWKS_URL=https://authservice.capitalinvestmenttradingplc.com/.well-known/jwks.json
+JWT_ISSUER=https://authservice.capitalinvestmenttradingplc.com/
+JWT_AUDIENCE=my-api
