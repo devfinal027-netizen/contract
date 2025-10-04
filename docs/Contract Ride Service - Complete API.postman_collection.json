@@ -347,19 +347,20 @@
 					"event": [
 						{
 							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Payment submitted successfully\", function() {",
-									"    pm.response.to.have.status(200);",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.success).to.eql(true);",
-									"    if (jsonData.data.payment) {",
-									"        pm.collectionVariables.set(\"paymentId\", jsonData.data.payment.id);",
-									"    }",
-									"});"
-								],
-								"type": "text/javascript"
-							}
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Payment submitted successfully\", function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.success).to.eql(true);",
+                                    "    var pid = (jsonData && jsonData.data) ? (jsonData.data.id || (jsonData.data.payment && jsonData.data.payment.id)) : undefined;",
+                                    "    if (pid) {",
+                                    "        pm.collectionVariables.set(\"paymentId\", pid);",
+                                    "    }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
 						}
 					],
 					"request": {
@@ -930,6 +931,21 @@
 			"item": [
                 {
                     "name": "Assign Driver to Subscription",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Driver assigned to subscription\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
                         "header": [
@@ -993,6 +1009,21 @@
                 },
                 {
                     "name": "Assign Driver by Passenger",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Driver assigned by passenger\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
                         "header": [
@@ -1238,6 +1269,23 @@
 				},
 				{
 					"name": "Get All Subscriptions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Admin subscriptions fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "  var list = (jsonData.data && jsonData.data.subscriptions) || [];",
+                                    "  if (list.length > 0) { pm.collectionVariables.set(\"subscriptionId\", list[0].id); }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1358,6 +1406,23 @@
 				},
 				{
 					"name": "Get Pending Payments",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Pending payments fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "  var list = (jsonData.data && jsonData.data.pending_payments) || [];",
+                                    "  if (list.length > 0) { pm.collectionVariables.set(\"paymentId\", list[0].id); }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1467,7 +1532,20 @@
 					]
 				},
 				{
-					"name": "Reject Payment",
+                    "name": "Approve Payment (via body)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                            { "key": "Content-Type", "value": "application/json" }
+                        ],
+                        "body": { "mode": "raw", "raw": "{\n  \"id\": \"{{paymentId}}\"\n}" },
+                        "url": { "raw": "{{baseUrl}}/admin/payment/approve", "host": ["{{baseUrl}}"], "path": ["admin", "payment", "approve"] }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Reject Payment",
 					"request": {
 						"method": "PATCH",
 						"header": [
@@ -1531,6 +1609,23 @@
 				},
 				{
 					"name": "Get Pending Subscriptions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Pending subscriptions fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "  var list = (jsonData.data && jsonData.data.pending_subscriptions) || (jsonData.data && jsonData.data.subscriptions) || [];",
+                                    "  if (list.length > 0) { pm.collectionVariables.set(\"subscriptionId\", list[0].id); }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1578,6 +1673,21 @@
 				},
 				{
 					"name": "Get All Trips",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Admin trips fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
