@@ -5,28 +5,29 @@ const path = require("path");
 const { getPassengerById, getAdminById } = require("../utils/userService");
 
 // CREATE payment for subscription (used by newSubscriptionController)
-exports.createPaymentForSubscription = asyncHandler(async (subscriptionId, paymentData, file = null) => {
-  console.log("createPaymentForSubscription called with:", {
-    subscriptionId,
-    paymentData,
-    hasFile: !!file
-  });
+exports.createPaymentForSubscription = async (subscriptionId, paymentData, file = null) => {
+  try {
+    console.log("createPaymentForSubscription called with:", {
+      subscriptionId,
+      paymentData,
+      hasFile: !!file
+    });
 
-  // Get subscription details
-  const subscription = await Subscription.findByPk(subscriptionId, {
-    include: [{ model: Contract, as: "contract" }]
-  });
+    // Get subscription details
+    const subscription = await Subscription.findByPk(subscriptionId, {
+      include: [{ model: Contract, as: "contract" }]
+    });
 
-  console.log("Subscription found in createPaymentForSubscription:", {
-    found: !!subscription,
-    subscriptionId: subscription?.id,
-    contractId: subscription?.contract_id,
-    passengerId: subscription?.passenger_id
-  });
+    console.log("Subscription found in createPaymentForSubscription:", {
+      found: !!subscription,
+      subscriptionId: subscription?.id,
+      contractId: subscription?.contract_id,
+      passengerId: subscription?.passenger_id
+    });
 
-  if (!subscription) {
-    throw new Error("Subscription not found");
-  }
+    if (!subscription) {
+      throw new Error("Subscription not found");
+    }
 
   const payment = {
     subscription_id: subscriptionId,
@@ -57,14 +58,18 @@ exports.createPaymentForSubscription = asyncHandler(async (subscriptionId, payme
     payment_method: createdPayment.payment_method
   });
   
-  console.log("About to return payment object:", {
-    hasId: !!createdPayment.id,
-    hasAmount: !!createdPayment.amount,
-    fullObject: createdPayment.toJSON ? createdPayment.toJSON() : createdPayment
-  });
-  
-  return createdPayment;
-});
+    console.log("About to return payment object:", {
+      hasId: !!createdPayment.id,
+      hasAmount: !!createdPayment.amount,
+      fullObject: createdPayment.toJSON ? createdPayment.toJSON() : createdPayment
+    });
+    
+    return createdPayment;
+  } catch (error) {
+    console.error("Error in createPaymentForSubscription:", error);
+    throw error;
+  }
+};
 
 // CREATE with file upload (legacy endpoint)
 exports.createPayment = asyncHandler(async (req, res) => {
