@@ -155,6 +155,28 @@ exports.createSubscription = asyncHandler(async (req, res) => {
 // POST /subscription/:id/payment - Process payment for subscription
 exports.processPayment = asyncHandler(async (req, res) => {
   const subscriptionId = req.params.id;
+  
+  // Debug logging
+  console.log("Payment request received:", {
+    subscriptionId,
+    contentType: req.headers['content-type'],
+    body: req.body,
+    method: req.method
+  });
+  
+  // Check if request body exists
+  if (!req.body) {
+    return res.status(400).json({
+      success: false,
+      message: "Request body is required. Please include Content-Type: application/json header.",
+      debug: {
+        contentType: req.headers['content-type'],
+        method: req.method,
+        hasBody: !!req.body
+      }
+    });
+  }
+  
   const { payment_method, transaction_reference, amount } = req.body;
 
   if (!payment_method) {
