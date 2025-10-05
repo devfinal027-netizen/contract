@@ -3,80 +3,91 @@ const { asyncHandler } = require("../middleware/errorHandler");
 const { getDriverById } = require("../utils/userService");
 const { calculateFareFromCoordinates } = require("../utils/pricingService");
 
-// GET /passenger/:id/driver - Get assigned driver for active trip/subscription
+// GET /passenger/:id/driver - Get assigned driver for latest subscription (ACTIVE first, else most recent)
 exports.getAssignedDriver = asyncHandler(async (req, res) => {
-  const passengerId = req.params.id;
+  const passengerId = String(req.params.id);
 
   // Check if user can access this passenger's data
-  if (req.user.type === "passenger" && String(req.user.id) !== String(passengerId)) {
+  if (req.user.type === "passenger" && String(req.user.id) !== passengerId) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
-  // Find active subscription for the passenger
-  const activeSubscription = await Subscription.findOne({
-    where: { 
-      passenger_id: passengerId,
-      status: "ACTIVE"
-    },
+  // Find latest ACTIVE subscription, else most recent any status
+  let subscription = await Subscription.findOne({
+    where: { passenger_id: passengerId, status: "ACTIVE" },
     include: [{
       model: Contract,
       as: "contract",
-      include: [{
-        model: RideSchedule,
-        as: "ride_schedules",
-        where: { is_active: true },
-        required: false,
-      }]
+      include: [{ model: RideSchedule, as: "ride_schedules", where: { is_active: true }, required: false }]
     }],
-    order: [['createdAt', 'DESC']],
+    order: [["createdAt", "DESC"]],
   });
 
-  if (!activeSubscription) {
-    return res.status(404).json({ 
-      success: false, 
-      message: "No active subscription found for this passenger" 
+  if (!subscription) {
+    subscription = await Subscription.findOne({
+      where: { passenger_id: passengerId },
+      include: [{
+        model: Contract,
+        as: "contract",
+        include: [{ model: RideSchedule, as: "ride_schedules", where: { is_active: true }, required: false }]
+      }],
+      order: [["createdAt", "DESC"]],
     });
   }
 
-  // Get driver from ride schedule
-  const rideSchedule = activeSubscription.contract?.ride_schedules?.[0];
-  if (!rideSchedule || !rideSchedule.driver_id) {
-    return res.status(404).json({ 
-      success: false, 
-      message: "No driver assigned to this subscription" 
-    });
+  if (!subscription) {
+    return res.status(404).json({ success: false, message: "No subscription found for this passenger" });
+  }
+
+  // Prefer subscription-level driver assignment, fallback to ride schedule
+  const driverId = subscription.driver_id || subscription.contract?.ride_schedules?.[0]?.driver_id;
+  if (!driverId) {
+    return res.status(404).json({ success: false, message: "No driver assigned to this subscription" });
   }
 
   try {
-    const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-    const driverInfo = await getDriverById(rideSchedule.driver_id, authHeader);
-    
-    if (!driverInfo) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Driver information not found" 
-      });
+    // Prefer getting info from token to avoid external calls
+    const { getUserInfo } = require("../utils/tokenHelper");
+    const tokenDriver = await getUserInfo(req, String(driverId), 'driver');
+    let driver = tokenDriver && tokenDriver.id ? tokenDriver : null;
+    if (!driver) {
+      const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+      const fetched = await getDriverById(driverId, authHeader);
+      if (fetched) {
+        driver = {
+          id: String(fetched.id),
+          name: fetched.name,
+          phone: fetched.phone,
+          email: fetched.email,
+          vehicle_info: {
+            carModel: fetched.carModel,
+            carPlate: fetched.carPlate,
+            carColor: fetched.carColor,
+            vehicleType: fetched.vehicleType,
+          }
+        };
+      }
+    }
+
+    if (!driver) {
+      return res.status(404).json({ success: false, message: "Driver information not found" });
     }
 
     res.json({
       success: true,
       data: {
-        driver: driverInfo,
-        subscription_id: activeSubscription.id,
-        contract_id: activeSubscription.contract_id,
-        schedule: {
-          pickup_time: rideSchedule.pickup_time,
-          days_of_week: rideSchedule.days_of_week,
-          pattern_type: rideSchedule.pattern_type,
-        }
+        passenger_id: passengerId,
+        subscription: {
+          id: subscription.id,
+          status: subscription.status,
+          start_date: subscription.start_date,
+          end_date: subscription.end_date,
+        },
+        assigned_driver: driver,
       }
     });
   } catch (error) {
-    return res.status(500).json({ 
-      success: false, 
-      message: "Error fetching driver information",
-      error: error.message 
-    });
+    return res.status(500).json({ success: false, message: "Error fetching driver information", error: error.message });
   }
 });
 

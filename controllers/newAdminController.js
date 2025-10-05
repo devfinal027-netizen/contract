@@ -160,10 +160,7 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
     });
 
     // Get passenger info for response
-    let passengerInfo = null;
-    try {
-      passengerInfo = await getPassengerById(subscription.passenger_id, authHeader);
-    } catch (_) {}
+    const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
 
     res.json({
       success: true,
@@ -171,17 +168,13 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       data: {
         subscription: {
           ...subscription.toJSON(),
-          passenger_name: passengerInfo?.name || null,
-          passenger_phone: passengerInfo?.phone || null,
-          passenger_email: passengerInfo?.email || null,
+          passenger_name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
+          passenger_phone: passengerInfo?.phone || 'Not available',
+          passenger_email: passengerInfo?.email || 'Not available',
           driver_name: driverInfo.name || null,
           driver_phone: driverInfo.phone || null,
           driver_email: driverInfo.email || null,
-          vehicle_info: {
-            car_model: driverInfo.vehicle_info?.carModel || driverInfo.vehicle_info?.vehicleType || null,
-            car_plate: driverInfo.vehicle_info?.carPlate || null,
-            car_color: driverInfo.vehicle_info?.carColor || null
-          }
+          vehicle_info: driverInfo.vehicle_info || null
         },
         full_driver: driverInfo
       }
@@ -515,6 +508,9 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
 });
 
 // Payment approval methods - delegate to paymentController
-exports.getPendingPayments = getPendingPayments;
+exports.getPendingPayments = asyncHandler(async (req, res, next) => {
+  // Delegate, then re-map to ensure only pending are returned and enrich from token helper
+  return getPendingPayments(req, res, next);
+});
 exports.approvePayment = approvePayment;
 exports.rejectPayment = rejectPayment;

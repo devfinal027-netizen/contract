@@ -66,8 +66,8 @@ async function getUserInfo(req, userId = null, userType = null) {
 
   const tokenInfo = extractUserFromToken(req.headers.authorization);
   if (tokenInfo) {
-    // If token represents the same user id, return directly
-    if (String(tokenInfo.id) === String(targetUserId)) {
+    // If token represents the same user id AND same user type, return directly
+    if (String(tokenInfo.id) === String(targetUserId) && (!tokenInfo.type || String(tokenInfo.type).toLowerCase() === String(targetUserType).toLowerCase())) {
       return {
         id: String(tokenInfo.id),
         name: tokenInfo.name || `${targetUserType} ${String(targetUserId).slice(-4)}`,
