@@ -1,5 +1,4 @@
 const axios = require('axios');
-const { getLocalDriver, getLocalPassenger, getAllLocalDrivers, getAllLocalPassengers } = require('./localDataStore');
 
 function buildUrlFromTemplate(template, params) {
   if (!template) return null;
@@ -61,14 +60,40 @@ async function getPassengerDetails(id, token) {
 
 async function getDriverDetails(id, token) {
   try {
-    const tpl = getTemplate('DRIVER_LOOKUP_URL_TEMPLATE') || `${getAuthBase()}/drivers/{id}`;
-    const url = buildUrlFromTemplate(tpl, { id });
-    console.log(`🌐 [getDriverDetails] Making HTTP request to: ${url}`);
+    // Try different endpoint patterns for individual driver
+    const endpoints = [
+      `${getAuthBase()}/drivers/${id}`,
+      `${getAuthBase()}/driver/${id}`,
+      `${getAuthBase()}/drivers/${id}/details`,
+      `${getAuthBase()}/driver/${id}/details`
+    ];
+    
+    console.log(`🌐 [getDriverDetails] Trying to fetch driver ${id} from external service`);
     console.log(`🌐 [getDriverDetails] Auth base: ${getAuthBase()}`);
-    console.log(`🌐 [getDriverDetails] Template: ${tpl}`);
     console.log(`🌐 [getDriverDetails] Headers:`, JSON.stringify(getAuthHeaders(token), null, 2));
     
-    const data = await httpGet(url, getAuthHeaders(token));
+    let data = null;
+    let lastError = null;
+    
+    // Try each endpoint pattern
+    for (const url of endpoints) {
+      try {
+        console.log(`🌐 [getDriverDetails] Trying endpoint: ${url}`);
+        data = await httpGet(url, getAuthHeaders(token));
+        console.log(`✅ [getDriverDetails] Success with endpoint: ${url}`);
+        break;
+      } catch (e) {
+        console.log(`❌ [getDriverDetails] Failed with endpoint ${url}: ${e.message}`);
+        lastError = e;
+        continue;
+      }
+    }
+    
+    if (!data) {
+      console.log(`❌ [getDriverDetails] All endpoints failed for driver ${id}`);
+      return { success: false, message: lastError?.response?.data?.message || lastError?.message || 'Driver not found' };
+    }
+    
     console.log(`🌐 [getDriverDetails] Raw response data:`, JSON.stringify(data, null, 2));
     
     const u = data?.data || data?.user || data?.driver || data;
@@ -87,7 +112,7 @@ async function getDriverDetails(id, token) {
         carModel: u.carModel, 
         carColor: u.carColor, 
         rating: u.rating, 
-        available: u.available, 
+        available: u.availability || u.available, 
         lastKnownLocation: u.lastKnownLocation, 
         paymentPreference: u.paymentPreference,
       } 
@@ -120,17 +145,25 @@ async function getDriverById(id, options) {
   }
   
   if (!res.success) {
-    console.log(`❌ [getDriverById] Both external attempts failed for driver ID: ${id}`);
-    console.log(`📦 [getDriverById] Trying local data store fallback...`);
+    console.log(`❌ [getDriverById] Individual driver endpoint failed for ID: ${id}`);
+    console.log(`🔄 [getDriverById] Trying to find driver in list endpoint...`);
     
-    const localDriver = getLocalDriver(id);
-    if (localDriver) {
-      console.log(`✅ [getDriverById] Found driver ${id} in local data store`);
-      return localDriver;
+    // Try to find the driver in the list endpoint
+    try {
+      const listData = await listDrivers({}, options);
+      const foundDriver = listData.find(driver => String(driver.id) === String(id));
+      
+      if (foundDriver) {
+        console.log(`✅ [getDriverById] Found driver ${id} in list endpoint`);
+        return foundDriver;
+      } else {
+        console.log(`❌ [getDriverById] Driver ${id} not found in list endpoint`);
+        return null;
+      }
+    } catch (listError) {
+      console.log(`❌ [getDriverById] List endpoint also failed:`, listError.message);
+      return null;
     }
-    
-    console.log(`❌ [getDriverById] Driver ${id} not found in external service or local store`);
-    return null;
   }
   
   const mappedDriver = {
@@ -160,15 +193,6 @@ async function getPassengerById(id, options) {
   
   if (!res.success) {
     console.log(`❌ [getPassengerById] External service failed for passenger ID: ${id}`);
-    console.log(`📦 [getPassengerById] Trying local data store fallback...`);
-    
-    const localPassenger = getLocalPassenger(id);
-    if (localPassenger) {
-      console.log(`✅ [getPassengerById] Found passenger ${id} in local data store`);
-      return localPassenger;
-    }
-    
-    console.log(`❌ [getPassengerById] Passenger ${id} not found in external service or local store`);
     return null;
   }
   
@@ -239,15 +263,6 @@ async function listDrivers(query = {}, options) {
       return mappedDrivers;
     } catch (e2) {
       console.log(`❌ [listDrivers] External fallback also failed:`, e2.message);
-      console.log(`📦 [listDrivers] Trying local data store fallback...`);
-      
-      const localDrivers = getAllLocalDrivers();
-      if (localDrivers.length > 0) {
-        console.log(`✅ [listDrivers] Found ${localDrivers.length} drivers in local data store`);
-        return localDrivers;
-      }
-      
-      console.log(`❌ [listDrivers] No drivers found in external service or local store`);
       return [];
     }
   }

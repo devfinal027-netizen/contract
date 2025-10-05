@@ -122,41 +122,15 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       });
     }
 
-    // Try to fetch driver info from external service first, then fallback to token helper
+    // Fetch driver info from external service
     const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
     console.log(`🔍 [assignDriverToSubscription] Fetching driver ${driver_id} with auth header:`, JSON.stringify(authHeader, null, 2));
     
-    let fetchedDriver = await getDriverById(driver_id, authHeader);
+    const fetchedDriver = await getDriverById(driver_id, authHeader);
     console.log(`🔍 [assignDriverToSubscription] External service result:`, JSON.stringify(fetchedDriver, null, 2));
     
-    // Fallback to token helper if external service fails
     if (!fetchedDriver) {
-      console.log(`⚠️ [assignDriverToSubscription] External service failed, trying token helper...`);
-      const { getUserInfo } = require("../utils/tokenHelper");
-      const tokenDriver = await getUserInfo(req, driver_id, 'driver');
-      console.log(`🔍 [assignDriverToSubscription] Token helper result:`, JSON.stringify(tokenDriver, null, 2));
-      
-      if (tokenDriver && tokenDriver.id) {
-        fetchedDriver = {
-          id: tokenDriver.id,
-          name: tokenDriver.name,
-          phone: tokenDriver.phone,
-          email: tokenDriver.email,
-          vehicleType: tokenDriver.vehicle_info?.vehicleType,
-          carModel: tokenDriver.vehicle_info?.carModel,
-          carPlate: tokenDriver.vehicle_info?.carPlate,
-          carColor: tokenDriver.vehicle_info?.carColor,
-          rating: null,
-          available: null,
-          lastKnownLocation: null,
-          paymentPreference: null,
-        };
-        console.log(`✅ [assignDriverToSubscription] Using token helper data:`, JSON.stringify(fetchedDriver, null, 2));
-      }
-    }
-    
-    if (!fetchedDriver) {
-      console.log(`❌ [assignDriverToSubscription] Driver ${driver_id} not found in external service or token`);
+      console.log(`❌ [assignDriverToSubscription] Driver ${driver_id} not found in external service`);
       return res.status(404).json({ success: false, message: "Driver not found" });
     }
 
@@ -186,30 +160,12 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       }
     });
 
-    // Try to fetch passenger info from external service first, then fallback to token helper
+    // Fetch passenger info from external service
     const { getPassengerById } = require("../utils/userService");
     console.log(`🔍 [assignDriverToSubscription] Fetching passenger ${subscription.passenger_id} with auth header:`, JSON.stringify(authHeader, null, 2));
     
-    let fetchedPassenger = await getPassengerById(subscription.passenger_id, authHeader);
+    const fetchedPassenger = await getPassengerById(subscription.passenger_id, authHeader);
     console.log(`🔍 [assignDriverToSubscription] External service passenger result:`, JSON.stringify(fetchedPassenger, null, 2));
-    
-    // Fallback to token helper if external service fails
-    if (!fetchedPassenger) {
-      console.log(`⚠️ [assignDriverToSubscription] External service failed for passenger, trying token helper...`);
-      const { getUserInfo } = require("../utils/tokenHelper");
-      const tokenPassenger = await getUserInfo(req, subscription.passenger_id, 'passenger');
-      console.log(`🔍 [assignDriverToSubscription] Token helper passenger result:`, JSON.stringify(tokenPassenger, null, 2));
-      
-      if (tokenPassenger && tokenPassenger.id) {
-        fetchedPassenger = {
-          id: tokenPassenger.id,
-          name: tokenPassenger.name,
-          phone: tokenPassenger.phone,
-          email: tokenPassenger.email,
-        };
-        console.log(`✅ [assignDriverToSubscription] Using token helper passenger data:`, JSON.stringify(fetchedPassenger, null, 2));
-      }
-    }
     
     const passengerInfo = {
       id: String(fetchedPassenger?.id || subscription.passenger_id),
