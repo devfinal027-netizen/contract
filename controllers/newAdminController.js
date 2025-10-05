@@ -553,34 +553,15 @@ exports.getDrivers = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /admin/driver/:id - Get full driver profile from external user service
+// GET /admin/driver/:id - Always fetch from external user service (no token fallbacks)
 exports.getDriverDetail = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
 
-  // 1) Prefer token-derived info
-  const tokenDriver = await require("../utils/tokenHelper").getUserInfo(req, String(id), 'driver');
-  if (tokenDriver && tokenDriver.id) {
-    return res.json({ success: true, data: {
-      id: String(tokenDriver.id),
-      name: tokenDriver.name || null,
-      phone: tokenDriver.phone || null,
-      email: tokenDriver.email || null,
-      vehicleType: tokenDriver.vehicle_info?.vehicleType || null,
-      carModel: tokenDriver.vehicle_info?.carModel || tokenDriver.vehicle_info?.carName || null,
-      carPlate: tokenDriver.vehicle_info?.carPlate || null,
-      carColor: tokenDriver.vehicle_info?.carColor || null,
-      rating: tokenDriver.rating != null ? tokenDriver.rating : null,
-      available: tokenDriver.available != null ? !!tokenDriver.available : null,
-      lastKnownLocation: tokenDriver.lastKnownLocation || null,
-      paymentPreference: tokenDriver.paymentPreference || null,
-    }});
-  }
+  // External service by id (primary)
+  let d = await getDriverById(String(id), authHeader);
 
-  // 2) External service by id
-  let d = await getDriverById(id, authHeader);
-
-  // 3) As a last resort, fetch list and match by id
+  // As a resilient fallback, list and match by id
   if (!d) {
     try {
       const list = await listDrivers({}, authHeader);
