@@ -40,7 +40,11 @@ function getAuthBase() {
 }
 
 function getTemplate(name) {
-  return process.env[name] || null;
+  const template = process.env[name] || null;
+  if (template && template.includes('${AUTH_BASE_URL}')) {
+    return template.replace('${AUTH_BASE_URL}', getAuthBase());
+  }
+  return template;
 }
 
 async function getPassengerDetails(id, token) {

@@ -4,7 +4,7 @@ const localPassengers = new Map();
 
 // Initialize with some sample data
 function initializeLocalData() {
-  // Sample drivers
+  // Sample drivers - matching your examples
   localDrivers.set("1", {
     id: "1",
     name: "abel desalegn",
@@ -35,6 +35,22 @@ function initializeLocalData() {
     paymentPreference: "CARD"
   });
   
+  // Add more sample drivers for testing
+  localDrivers.set("3", {
+    id: "3",
+    name: "Michael Johnson",
+    phone: "+251933456789",
+    email: "michael.johnson@example.com",
+    vehicleType: "sedan",
+    carModel: "BMW 320i",
+    carPlate: "ET1234",
+    carColor: "Black",
+    rating: 4.8,
+    available: true,
+    lastKnownLocation: { lat: 9.0192, lng: 38.7525 },
+    paymentPreference: "CARD"
+  });
+  
   // Sample passengers
   localPassengers.set("1", {
     id: "1",
@@ -50,7 +66,16 @@ function initializeLocalData() {
     email: "jane.smith@example.com"
   });
   
+  localPassengers.set("3", {
+    id: "3",
+    name: "Alice Brown",
+    phone: "+251933456789",
+    email: "alice.brown@example.com"
+  });
+  
   console.log('📦 Local data store initialized with sample data');
+  console.log(`📦 Available drivers: ${localDrivers.size}`);
+  console.log(`📦 Available passengers: ${localPassengers.size}`);
 }
 
 // Get driver from local store
