@@ -12,13 +12,17 @@ router.post("/subscription/passenger/:passengerId/assign-driver", authorize("adm
   req.body = { ...(req.body || {}), passenger_id: req.params.passengerId };
   return controller.assignDriverToSubscription(req, res, next);
 });
+// Accept POST for approve to match admin preference, keep PATCH for backward compatibility
+router.post("/subscription/:id/approve", authorize("admin"), controller.approveSubscription);
 router.patch("/subscription/:id/approve", authorize("admin"), controller.approveSubscription);
 router.get("/subscriptions", authorize("admin"), controller.getAllSubscriptions);
 router.get("/trips", authorize("admin"), controller.getAllTrips);
 
 // Payment approval
 router.get("/payments/pending", authorize("admin"), controller.getPendingPayments);
+router.post("/payment/:id/approve", authorize("admin"), controller.approvePayment);
 router.patch("/payment/:id/approve", authorize("admin"), controller.approvePayment);
+router.post("/payment/:id/reject", authorize("admin"), controller.rejectPayment);
 router.patch("/payment/:id/reject", authorize("admin"), controller.rejectPayment);
 
 // Convenience: approve by body if :id is missing (handles Postman var issues)

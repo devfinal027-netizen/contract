@@ -13,7 +13,22 @@ const authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = decoded || {};
+    // Normalize common id fields from token payload
+    const idCandidates = [
+      decoded && decoded.id,
+      decoded && decoded.userId,
+      decoded && decoded._id,
+      decoded && decoded.sub,
+      decoded && decoded.user && (decoded.user.id || decoded.user._id),
+    ].filter((v) => v !== undefined && v !== null && v !== "");
+    if (idCandidates.length > 0) {
+      req.user.id = String(idCandidates[0]);
+    }
+    // Normalize roles field to array if provided as single string
+    if (req.user && typeof req.user.roles === 'string') {
+      req.user.roles = [req.user.roles];
+    }
     next();
   } catch (error) {
     return res

@@ -122,14 +122,28 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       });
     }
 
-    // Verify driver exists
-    const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-    const driverInfo = await getDriverById(driver_id, authHeader);
-    if (!driverInfo) {
-      return res.status(404).json({
-        success: false,
-        message: "Driver not found"
-      });
+    // Verify driver exists, prefer token user info first
+    let driverInfo = await getUserInfo(req, driver_id, 'driver');
+    if (!driverInfo || !driverInfo.id) {
+      const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+      const fetched = await getDriverById(driver_id, authHeader);
+      if (fetched) {
+        driverInfo = {
+          id: String(fetched.id),
+          name: fetched.name,
+          phone: fetched.phone,
+          email: fetched.email,
+          vehicle_info: {
+            carModel: fetched.carModel,
+            carPlate: fetched.carPlate,
+            carColor: fetched.carColor,
+            vehicleType: fetched.vehicleType,
+          }
+        };
+      }
+    }
+    if (!driverInfo || !driverInfo.id) {
+      return res.status(404).json({ success: false, message: "Driver not found" });
     }
 
     // Update subscription with driver assignment and store key driver fields for convenience
@@ -139,9 +153,9 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       driver_phone: driverInfo.phone || null,
       driver_email: driverInfo.email || null,
       vehicle_info: {
-        car_model: driverInfo.carModel || driverInfo.vehicleType || null,
-        car_plate: driverInfo.carPlate || null,
-        car_color: driverInfo.carColor || null
+        car_model: driverInfo.vehicle_info?.carModel || driverInfo.vehicle_info?.vehicleType || null,
+        car_plate: driverInfo.vehicle_info?.carPlate || null,
+        car_color: driverInfo.vehicle_info?.carColor || null
       }
     });
 
@@ -164,25 +178,12 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
           driver_phone: driverInfo.phone || null,
           driver_email: driverInfo.email || null,
           vehicle_info: {
-            car_model: driverInfo.carModel || driverInfo.vehicleType || null,
-            car_plate: driverInfo.carPlate || null,
-            car_color: driverInfo.carColor || null
+            car_model: driverInfo.vehicle_info?.carModel || driverInfo.vehicle_info?.vehicleType || null,
+            car_plate: driverInfo.vehicle_info?.carPlate || null,
+            car_color: driverInfo.vehicle_info?.carColor || null
           }
         },
-        full_driver: {
-          id: driverInfo.id,
-          name: driverInfo.name,
-          phone: driverInfo.phone,
-          email: driverInfo.email,
-          vehicleType: driverInfo.vehicleType,
-          carModel: driverInfo.carModel,
-          carPlate: driverInfo.carPlate,
-          carColor: driverInfo.carColor,
-          rating: driverInfo.rating,
-          available: driverInfo.available,
-          lastKnownLocation: driverInfo.lastKnownLocation,
-          paymentPreference: driverInfo.paymentPreference
-        }
+        full_driver: driverInfo
       }
     });
   } catch (error) {
