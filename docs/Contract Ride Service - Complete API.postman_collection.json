@@ -1,3 +1,4 @@
+
 {
 	"info": {
 		"_postman_id": "df9efac8-cd9e-4286-8aa2-2d7e1d871c5b",
@@ -338,7 +339,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"message\": \"Subscription created successfully with fare estimation\",\n  \"data\": {\n    \"subscription\": {\n      \"id\": \"uuid-here\",\n      \"passenger_id\": \"passenger-uuid\",\n      \"passenger_name\": \"John Doe\",\n      \"passenger_phone\": \"+251911234567\",\n      \"passenger_email\": \"john@example.com\",\n      \"contract_type\": \"INSTITUTIONAL\",\n      \"pickup_location\": \"Bole International Airport\",\n      \"dropoff_location\": \"Addis Ababa University\",\n      \"start_date\": \"2024-01-01\",\n      \"end_date\": \"2024-01-31\",\n      \"fare\": 150.00,\n      \"discount_applied\": 15.00,\n      \"final_fare\": 4050.00,\n      \"status\": \"PENDING\",\n      \"payment_status\": \"PENDING\"\n    },\n    \"fare_breakdown\": {\n      \"distance_km\": 6.25,\n      \"base_price_per_km\": 25.00,\n      \"daily_fare\": 135.00,\n      \"multiplier\": 30,\n      \"discount_percentage\": 10.00,\n      \"total_fare\": 4050.00\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"message\": \"Subscription created successfully with fare estimation\",\n  \"data\": {\n    \"subscription\": {\n      \"id\": \"uuid-here\",\n      \"passenger_id\": \"passenger-uuid\",\n      \"passenger_name\": \"John Doe\",\n      \"passenger_phone\": \"251911234567\",\n      \"passenger_email\": \"john@example.com\",\n      \"contract_type\": \"INSTITUTIONAL\",\n      \"pickup_location\": \"Bole International Airport\",\n      \"dropoff_location\": \"Addis Ababa University\",\n      \"start_date\": \"2024-01-01\",\n      \"end_date\": \"2024-01-31\",\n      \"fare\": 150.00,\n      \"discount_applied\": 15.00,\n      \"final_fare\": 4050.00,\n      \"status\": \"PENDING\",\n      \"payment_status\": \"PENDING\"\n    },\n    \"fare_breakdown\": {\n      \"distance_km\": 6.25,\n      \"base_price_per_km\": 25.00,\n      \"daily_fare\": 135.00,\n      \"multiplier\": 30,\n      \"discount_percentage\": 10.00,\n      \"total_fare\": 4050.00\n    }\n  }\n}"
 						}
 					]
 				},
@@ -347,19 +348,20 @@
 					"event": [
 						{
 							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Payment submitted successfully\", function() {",
-									"    pm.response.to.have.status(200);",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.success).to.eql(true);",
-									"    if (jsonData.data.payment) {",
-									"        pm.collectionVariables.set(\"paymentId\", jsonData.data.payment.id);",
-									"    }",
-									"});"
-								],
-								"type": "text/javascript"
-							}
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Payment submitted successfully\", function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.success).to.eql(true);",
+                                    "    var pid = (jsonData && jsonData.data) ? (jsonData.data.id || (jsonData.data.payment && jsonData.data.payment.id)) : undefined;",
+                                    "    if (pid) {",
+                                    "        pm.collectionVariables.set(\"paymentId\", pid);",
+                                    "    }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
 						}
 					],
 					"request": {
@@ -466,7 +468,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"passenger_name\": \"John Doe\",\n    \"passenger_phone\": \"+251911234567\",\n    \"passenger_email\": \"john@example.com\",\n    \"active_subscriptions\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"expiration_date\": \"2024-12-31\",\n        \"days_until_expiry\": 45,\n        \"driver_name\": \"Ahmed Ali\",\n        \"driver_phone\": \"+251911234568\",\n        \"vehicle_info\": {\n          \"model\": \"Toyota Corolla\",\n          \"plate\": \"AA-123-456\",\n          \"color\": \"White\"\n        }\n      }\n    ],\n    \"subscription_history\": [],\n    \"counters\": {\n      \"total_subscriptions\": 5,\n      \"active_count\": 2,\n      \"history_count\": 3\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"passenger_name\": \"John Doe\",\n    \"passenger_phone\": \"251911234567\",\n    \"passenger_email\": \"john@example.com\",\n    \"active_subscriptions\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"expiration_date\": \"2024-12-31\",\n        \"days_until_expiry\": 45,\n        \"driver_name\": \"Ahmed Ali\",\n        \"driver_phone\": \"251911234568\",\n        \"vehicle_info\": {\n          \"model\": \"Toyota Corolla\",\n          \"plate\": \"AA-123-456\",\n          \"color\": \"White\"\n        }\n      }\n    ],\n    \"subscription_history\": [],\n    \"counters\": {\n      \"total_subscriptions\": 5,\n      \"active_count\": 2,\n      \"history_count\": 3\n    }\n  }\n}"
 						}
 					]
 				},
@@ -513,7 +515,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"passenger_name\": \"John Doe\",\n    \"assigned_driver\": {\n      \"driver_id\": \"driver-uuid-456\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"+251911234568\",\n      \"driver_email\": \"ahmed@example.com\",\n      \"vehicle_info\": {\n        \"model\": \"Toyota Corolla\",\n        \"plate\": \"AA-123-456\",\n        \"color\": \"White\"\n      }\n    },\n    \"subscription\": {\n      \"id\": \"sub-uuid-1\",\n      \"contract_type\": \"INSTITUTIONAL\",\n      \"pickup_location\": \"Bole Airport\",\n      \"dropoff_location\": \"University\",\n      \"start_date\": \"2024-01-01\",\n      \"end_date\": \"2024-12-31\",\n      \"status\": \"ACTIVE\"\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"passenger_name\": \"John Doe\",\n    \"assigned_driver\": {\n      \"driver_id\": \"driver-uuid-456\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"251911234568\",\n      \"driver_email\": \"ahmed@example.com\",\n      \"vehicle_info\": {\n        \"model\": \"Toyota Corolla\",\n        \"plate\": \"AA-123-456\",\n        \"color\": \"White\"\n      }\n    },\n    \"subscription\": {\n      \"id\": \"sub-uuid-1\",\n      \"contract_type\": \"INSTITUTIONAL\",\n      \"pickup_location\": \"Bole Airport\",\n      \"dropoff_location\": \"University\",\n      \"start_date\": \"2024-01-01\",\n      \"end_date\": \"2024-12-31\",\n      \"status\": \"ACTIVE\"\n    }\n  }\n}"
 						}
 					]
 				},
@@ -738,7 +740,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"driver_id\": \"driver-uuid-456\",\n    \"passengers\": [\n      {\n        \"subscription_id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-123\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"+251911234567\",\n        \"passenger_email\": \"john@example.com\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"expiration_date\": \"2024-12-31\",\n        \"days_until_expiry\": 45,\n        \"payment_status\": \"PAID\",\n        \"subscription_status\": \"ACTIVE\",\n        \"fare\": 4218.60\n      }\n    ],\n    \"active_passengers\": [],\n    \"expiring_soon\": [],\n    \"pending_payment\": [],\n    \"counters\": {\n      \"total_passengers\": 10,\n      \"active_count\": 8,\n      \"expiring_count\": 2,\n      \"pending_payment_count\": 1\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"driver_id\": \"driver-uuid-456\",\n    \"passengers\": [\n      {\n        \"subscription_id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-123\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"251911234567\",\n        \"passenger_email\": \"john@example.com\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"expiration_date\": \"2024-12-31\",\n        \"days_until_expiry\": 45,\n        \"payment_status\": \"PAID\",\n        \"subscription_status\": \"ACTIVE\",\n        \"fare\": 4218.60\n      }\n    ],\n    \"active_passengers\": [],\n    \"expiring_soon\": [],\n    \"pending_payment\": [],\n    \"counters\": {\n      \"total_passengers\": 10,\n      \"active_count\": 8,\n      \"expiring_count\": 2,\n      \"pending_payment_count\": 1\n    }\n  }\n}"
 						}
 					]
 				},
@@ -795,7 +797,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"schedule\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"+251911234567\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"start_date\": \"2024-01-01\",\n        \"end_date\": \"2024-12-31\"\n      }\n    ],\n    \"schedule_by_type\": {\n      \"INSTITUTIONAL\": [\n        {\n          \"id\": \"sub-uuid-1\",\n          \"passenger_name\": \"John Doe\",\n          \"contract_type\": \"INSTITUTIONAL\"\n        }\n      ]\n    },\n    \"statistics\": {\n      \"total_active_subscriptions\": 5,\n      \"individual_subscriptions\": 2,\n      \"group_subscriptions\": 1,\n      \"institutional_subscriptions\": 2\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"schedule\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"251911234567\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"start_date\": \"2024-01-01\",\n        \"end_date\": \"2024-12-31\"\n      }\n    ],\n    \"schedule_by_type\": {\n      \"INSTITUTIONAL\": [\n        {\n          \"id\": \"sub-uuid-1\",\n          \"passenger_name\": \"John Doe\",\n          \"contract_type\": \"INSTITUTIONAL\"\n        }\n      ]\n    },\n    \"statistics\": {\n      \"total_active_subscriptions\": 5,\n      \"individual_subscriptions\": 2,\n      \"group_subscriptions\": 1,\n      \"institutional_subscriptions\": 2\n    }\n  }\n}"
 						}
 					]
 				},
@@ -919,7 +921,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"message\": \"Notification sent successfully to passenger\",\n  \"data\": {\n    \"trip_id\": \"trip-uuid-123\",\n    \"driver_id\": \"driver-uuid-456\",\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"passenger_name\": \"John Doe\",\n    \"passenger_phone\": \"+251911234567\",\n    \"notification\": {\n      \"type\": \"ARRIVAL\",\n      \"message\": \"I'm arriving at the pickup location in 5 minutes\",\n      \"sent_at\": \"2024-01-15T08:25:00.000Z\",\n      \"delivery_status\": \"SENT\"\n    },\n    \"trip_details\": {\n      \"pickup_location\": \"Bole Airport\",\n      \"dropoff_location\": \"University\",\n      \"status\": \"SCHEDULED\",\n      \"scheduled_time\": \"2024-01-15T08:30:00.000Z\"\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"message\": \"Notification sent successfully to passenger\",\n  \"data\": {\n    \"trip_id\": \"trip-uuid-123\",\n    \"driver_id\": \"driver-uuid-456\",\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"passenger_name\": \"John Doe\",\n    \"passenger_phone\": \"251911234567\",\n    \"notification\": {\n      \"type\": \"ARRIVAL\",\n      \"message\": \"I'm arriving at the pickup location in 5 minutes\",\n      \"sent_at\": \"2024-01-15T08:25:00.000Z\",\n      \"delivery_status\": \"SENT\"\n    },\n    \"trip_details\": {\n      \"pickup_location\": \"Bole Airport\",\n      \"dropoff_location\": \"University\",\n      \"status\": \"SCHEDULED\",\n      \"scheduled_time\": \"2024-01-15T08:30:00.000Z\"\n    }\n  }\n}"
 						}
 					]
 				}
@@ -930,6 +932,21 @@
 			"item": [
                 {
                     "name": "Assign Driver to Subscription",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Driver assigned to subscription\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
                         "header": [
@@ -987,12 +1004,27 @@
                                 }
                             ],
                             "cookie": [],
-                            "body": "{\n  \"success\": true,\n  \"message\": \"Driver assigned to subscription successfully\",\n  \"data\": {\n    \"subscription\": {\n      \"id\": \"sub-uuid-1\",\n      \"driver_id\": \"driver-uuid-456\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"+251911234568\"\n    }\n  }\n}"
+                            "body": "{\n  \"success\": true,\n  \"message\": \"Driver assigned to subscription successfully\",\n  \"data\": {\n    \"subscription\": {\n      \"id\": \"sub-uuid-1\",\n      \"driver_id\": \"driver-uuid-456\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"251911234568\"\n    }\n  }\n}"
                         }
                     ]
                 },
                 {
                     "name": "Assign Driver by Passenger",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Driver assigned by passenger\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
                         "header": [
@@ -1238,6 +1270,23 @@
 				},
 				{
 					"name": "Get All Subscriptions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Admin subscriptions fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "  var list = (jsonData.data && jsonData.data.subscriptions) || [];",
+                                    "  if (list.length > 0) { pm.collectionVariables.set(\"subscriptionId\", list[0].id); }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1289,7 +1338,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"subscriptions\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"+251911234567\",\n        \"passenger_email\": \"john@example.com\",\n        \"driver_name\": \"Ahmed Ali\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"status\": \"PENDING\",\n        \"payment_status\": \"PENDING\",\n        \"expiration_date\": \"2024-12-31\",\n        \"days_until_expiry\": 45,\n        \"trip_history\": [\n          {\n            \"id\": \"trip-uuid-1\",\n            \"status\": \"COMPLETED\",\n            \"pickup_confirmed\": true,\n            \"trip_ended\": true\n          }\n        ],\n        \"trip_count\": 5\n      }\n    ],\n    \"active_subscriptions\": [],\n    \"pending_subscriptions\": [],\n    \"expired_subscriptions\": [],\n    \"counters\": {\n      \"total_count\": 100,\n      \"active_count\": 75,\n      \"pending_count\": 15,\n      \"expired_count\": 10\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"subscriptions\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"251911234567\",\n        \"passenger_email\": \"john@example.com\",\n        \"driver_name\": \"Ahmed Ali\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"status\": \"PENDING\",\n        \"payment_status\": \"PENDING\",\n        \"expiration_date\": \"2024-12-31\",\n        \"days_until_expiry\": 45,\n        \"trip_history\": [\n          {\n            \"id\": \"trip-uuid-1\",\n            \"status\": \"COMPLETED\",\n            \"pickup_confirmed\": true,\n            \"trip_ended\": true\n          }\n        ],\n        \"trip_count\": 5\n      }\n    ],\n    \"active_subscriptions\": [],\n    \"pending_subscriptions\": [],\n    \"expired_subscriptions\": [],\n    \"counters\": {\n      \"total_count\": 100,\n      \"active_count\": 75,\n      \"pending_count\": 15,\n      \"expired_count\": 10\n    }\n  }\n}"
 						}
 					]
 				},
@@ -1358,6 +1407,23 @@
 				},
 				{
 					"name": "Get Pending Payments",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Pending payments fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "  var list = (jsonData.data && jsonData.data.pending_payments) || [];",
+                                    "  if (list.length > 0) { pm.collectionVariables.set(\"paymentId\", list[0].id); }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1399,7 +1465,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"pending_payments\": [\n      {\n        \"id\": \"payment-uuid-1\",\n        \"subscription_id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-1\",\n        \"amount\": 4218.60,\n        \"payment_method\": \"BANK_TRANSFER\",\n        \"transaction_reference\": \"PAY-123456789\",\n        \"status\": \"PENDING\",\n        \"admin_approved\": false,\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"+251911234567\",\n        \"passenger_email\": \"john@example.com\"\n      }\n    ],\n    \"total_count\": 1\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"pending_payments\": [\n      {\n        \"id\": \"payment-uuid-1\",\n        \"subscription_id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-1\",\n        \"amount\": 4218.60,\n        \"payment_method\": \"BANK_TRANSFER\",\n        \"transaction_reference\": \"PAY-123456789\",\n        \"status\": \"PENDING\",\n        \"admin_approved\": false,\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"251911234567\",\n        \"passenger_email\": \"john@example.com\"\n      }\n    ],\n    \"total_count\": 1\n  }\n}"
 						}
 					]
 				},
@@ -1467,7 +1533,20 @@
 					]
 				},
 				{
-					"name": "Reject Payment",
+                    "name": "Approve Payment (via body)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            { "key": "Authorization", "value": "Bearer {{authToken}}" },
+                            { "key": "Content-Type", "value": "application/json" }
+                        ],
+                        "body": { "mode": "raw", "raw": "{\n  \"id\": \"{{paymentId}}\"\n}" },
+                        "url": { "raw": "{{baseUrl}}/admin/payment/approve", "host": ["{{baseUrl}}"], "path": ["admin", "payment", "approve"] }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Reject Payment",
 					"request": {
 						"method": "PATCH",
 						"header": [
@@ -1531,6 +1610,23 @@
 				},
 				{
 					"name": "Get Pending Subscriptions",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Pending subscriptions fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "  var list = (jsonData.data && jsonData.data.pending_subscriptions) || (jsonData.data && jsonData.data.subscriptions) || [];",
+                                    "  if (list.length > 0) { pm.collectionVariables.set(\"subscriptionId\", list[0].id); }",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1572,12 +1668,27 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"pending_subscriptions\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-123\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"+251911234567\",\n        \"passenger_email\": \"john@example.com\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"start_date\": \"2024-01-01\",\n        \"end_date\": \"2024-01-31\",\n        \"status\": \"PENDING\",\n        \"payment_status\": \"PENDING\",\n        \"createdAt\": \"2024-01-15T10:00:00.000Z\"\n      }\n    ],\n    \"total_count\": 1\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"pending_subscriptions\": [\n      {\n        \"id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-123\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"251911234567\",\n        \"passenger_email\": \"john@example.com\",\n        \"contract_type\": \"INSTITUTIONAL\",\n        \"pickup_location\": \"Bole Airport\",\n        \"dropoff_location\": \"University\",\n        \"start_date\": \"2024-01-01\",\n        \"end_date\": \"2024-01-31\",\n        \"status\": \"PENDING\",\n        \"payment_status\": \"PENDING\",\n        \"createdAt\": \"2024-01-15T10:00:00.000Z\"\n      }\n    ],\n    \"total_count\": 1\n  }\n}"
 						}
 					]
 				},
 				{
 					"name": "Get All Trips",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Admin trips fetched\", function () {",
+                                    "  pm.response.to.have.status(200);",
+                                    "  var jsonData = pm.response.json();",
+                                    "  pm.expect(jsonData.success).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
 					"request": {
 						"method": "GET",
 						"header": [
@@ -1633,7 +1744,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"trips\": [\n      {\n        \"id\": \"trip-uuid-1\",\n        \"subscription_id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-1\",\n        \"driver_id\": \"driver-uuid-1\",\n        \"status\": \"ONGOING\",\n        \"started_at\": \"2024-01-15T08:30:00.000Z\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"+251911234567\",\n        \"driver_name\": \"Ahmed Ali\",\n        \"driver_phone\": \"+251911234568\",\n        \"vehicle_info\": {\n          \"model\": \"Toyota Corolla\",\n          \"plate\": \"AA-123-456\"\n        },\n        \"is_scheduled\": true,\n        \"notification_sent\": true\n      }\n    ],\n    \"scheduled_trips\": [],\n    \"ongoing_trips\": [],\n    \"completed_trips\": [],\n    \"cancelled_trips\": [],\n    \"statistics\": {\n      \"total_trips\": 25,\n      \"scheduled_count\": 5,\n      \"ongoing_count\": 3,\n      \"completed_count\": 15,\n      \"cancelled_count\": 2,\n      \"total_distance_km\": 156.25,\n      \"total_fare\": 3906.25,\n      \"average_trip_distance\": 10.42,\n      \"average_fare_per_trip\": 260.42\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"trips\": [\n      {\n        \"id\": \"trip-uuid-1\",\n        \"subscription_id\": \"sub-uuid-1\",\n        \"passenger_id\": \"passenger-uuid-1\",\n        \"driver_id\": \"driver-uuid-1\",\n        \"status\": \"ONGOING\",\n        \"started_at\": \"2024-01-15T08:30:00.000Z\",\n        \"passenger_name\": \"John Doe\",\n        \"passenger_phone\": \"251911234567\",\n        \"driver_name\": \"Ahmed Ali\",\n        \"driver_phone\": \"251911234568\",\n        \"vehicle_info\": {\n          \"model\": \"Toyota Corolla\",\n          \"plate\": \"AA-123-456\"\n        },\n        \"is_scheduled\": true,\n        \"notification_sent\": true\n      }\n    ],\n    \"scheduled_trips\": [],\n    \"ongoing_trips\": [],\n    \"completed_trips\": [],\n    \"cancelled_trips\": [],\n    \"statistics\": {\n      \"total_trips\": 25,\n      \"scheduled_count\": 5,\n      \"ongoing_count\": 3,\n      \"completed_count\": 15,\n      \"cancelled_count\": 2,\n      \"total_distance_km\": 156.25,\n      \"total_fare\": 3906.25,\n      \"average_trip_distance\": 10.42,\n      \"average_fare_per_trip\": 260.42\n    }\n  }\n}"
 						}
 					]
 				}
@@ -1719,7 +1830,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"message\": \"Trip created successfully\",\n  \"data\": {\n    \"trip\": {\n      \"id\": \"trip-uuid-123\",\n      \"subscription_id\": \"sub-uuid-1\",\n      \"passenger_id\": \"passenger-uuid-123\",\n      \"driver_id\": \"driver-uuid-456\",\n      \"pickup_location\": \"Bole International Airport\",\n      \"dropoff_location\": \"Addis Ababa University\",\n      \"status\": \"SCHEDULED\",\n      \"passenger_name\": \"John Doe\",\n      \"passenger_phone\": \"+251911234567\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"+251911234568\",\n      \"vehicle_info\": {\n        \"model\": \"Toyota Corolla\",\n        \"plate\": \"AA-123-456\"\n      },\n      \"schedule\": {\n        \"id\": \"schedule-uuid-123\",\n        \"scheduled_time\": \"2024-01-15T08:30:00.000Z\",\n        \"notified\": false\n      }\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"message\": \"Trip created successfully\",\n  \"data\": {\n    \"trip\": {\n      \"id\": \"trip-uuid-123\",\n      \"subscription_id\": \"sub-uuid-1\",\n      \"passenger_id\": \"passenger-uuid-123\",\n      \"driver_id\": \"driver-uuid-456\",\n      \"pickup_location\": \"Bole International Airport\",\n      \"dropoff_location\": \"Addis Ababa University\",\n      \"status\": \"SCHEDULED\",\n      \"passenger_name\": \"John Doe\",\n      \"passenger_phone\": \"251911234567\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"251911234568\",\n      \"vehicle_info\": {\n        \"model\": \"Toyota Corolla\",\n        \"plate\": \"AA-123-456\"\n      },\n      \"schedule\": {\n        \"id\": \"schedule-uuid-123\",\n        \"scheduled_time\": \"2024-01-15T08:30:00.000Z\",\n        \"notified\": false\n      }\n    }\n  }\n}"
 						}
 					]
 				},
@@ -1892,7 +2003,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"trip\": {\n      \"id\": \"trip-uuid-123\",\n      \"subscription_id\": \"sub-uuid-1\",\n      \"passenger_id\": \"passenger-uuid-123\",\n      \"driver_id\": \"driver-uuid-456\",\n      \"pickup_location\": \"Bole Airport\",\n      \"dropoff_location\": \"University\",\n      \"status\": \"SCHEDULED\",\n      \"scheduled_pickup_time\": \"2024-01-15T08:30:00.000Z\",\n      \"passenger_name\": \"John Doe\",\n      \"passenger_phone\": \"+251911234567\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"+251911234568\",\n      \"vehicle_info\": {\n        \"model\": \"Toyota Corolla\",\n        \"plate\": \"AA-123-456\",\n        \"color\": \"White\"\n      }\n    }\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"trip\": {\n      \"id\": \"trip-uuid-123\",\n      \"subscription_id\": \"sub-uuid-1\",\n      \"passenger_id\": \"passenger-uuid-123\",\n      \"driver_id\": \"driver-uuid-456\",\n      \"pickup_location\": \"Bole Airport\",\n      \"dropoff_location\": \"University\",\n      \"status\": \"SCHEDULED\",\n      \"scheduled_pickup_time\": \"2024-01-15T08:30:00.000Z\",\n      \"passenger_name\": \"John Doe\",\n      \"passenger_phone\": \"251911234567\",\n      \"driver_name\": \"Ahmed Ali\",\n      \"driver_phone\": \"251911234568\",\n      \"vehicle_info\": {\n        \"model\": \"Toyota Corolla\",\n        \"plate\": \"AA-123-456\",\n        \"color\": \"White\"\n      }\n    }\n  }\n}"
 						}
 					]
 				}
