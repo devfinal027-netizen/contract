@@ -1341,8 +1341,8 @@
 						}
 					]
 				},
-				{
-					"name": "Approve Subscription",
+                {
+                    "name": "Approve Subscription",
 					"event": [
 						{
 							"listen": "test",
@@ -1359,8 +1359,8 @@
 							}
 						}
 					],
-					"request": {
-						"method": "PATCH",
+                    "request": {
+                        "method": "POST",
 						"header": [
 							{
 								"key": "Authorization",
@@ -1376,8 +1376,8 @@
 					"response": [
 						{
 							"name": "Success Response",
-							"originalRequest": {
-								"method": "PATCH",
+                            "originalRequest": {
+                                "method": "POST",
 								"header": [
 									{
 										"key": "Authorization",
@@ -1468,8 +1468,8 @@
 						}
 					]
 				},
-				{
-					"name": "Approve Payment",
+                {
+                    "name": "Approve Payment",
 					"event": [
 						{
 							"listen": "test",
@@ -1486,8 +1486,8 @@
 							}
 						}
 					],
-					"request": {
-						"method": "PATCH",
+                    "request": {
+                        "method": "POST",
 						"header": [
 							{
 								"key": "Authorization",
@@ -1503,8 +1503,8 @@
 					"response": [
 						{
 							"name": "Success Response",
-							"originalRequest": {
-								"method": "PATCH",
+                            "originalRequest": {
+                                "method": "POST",
 								"header": [
 									{
 										"key": "Authorization",
@@ -1547,7 +1547,7 @@
                 {
                     "name": "Reject Payment",
 					"request": {
-						"method": "PATCH",
+                        "method": "POST",
 						"header": [
 							{
 								"key": "Authorization",
