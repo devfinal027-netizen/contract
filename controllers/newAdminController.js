@@ -578,6 +578,7 @@ exports.getDriverDetail = asyncHandler(async (req, res) => {
           carColor: found.carColor,
           rating: found.rating,
           available: found.available,
+          lastKnownLocation: found.lastKnownLocation,
           paymentPreference: found.paymentPreference,
         };
       }

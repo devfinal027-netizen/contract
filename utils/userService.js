@@ -110,7 +110,7 @@ async function getDriversByIds(ids = [], token) {
     const url = `${base}/drivers/batch`;
     const data = await httpPost(url, { ids }, getAuthHeaders(token));
     const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-    return arr.map(u => ({ id: String(u.id || u._id || ''), name: u.name, phone: u.phone, email: u.email, vehicleType: u.vehicleType, carPlate: u.carPlate, rating: u.rating, available: u.available, paymentPreference: u.paymentPreference }));
+    return arr.map(u => ({ id: String(u.id || u._id || ''), name: u.name, phone: u.phone, email: u.email, vehicleType: u.vehicleType, carModel: u.carModel, carPlate: u.carPlate, carColor: u.carColor, rating: u.rating, available: u.available, lastKnownLocation: u.lastKnownLocation, paymentPreference: u.paymentPreference }));
   } catch (e) {
     const results = await Promise.all((ids || []).map(id => getDriverById(id, {})));
     return results.filter(Boolean);
@@ -125,7 +125,7 @@ async function listDrivers(query = {}, options) {
     const token = options && options.headers ? options.headers.Authorization : undefined;
     let data = await httpGet(url.toString(), getAuthHeaders(token));
     const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-    return arr.map(u => ({ id: String(u.id || u._id || ''), name: u.name, phone: u.phone, email: u.email, vehicleType: u.vehicleType, carPlate: u.carPlate, rating: u.rating, available: u.available, paymentPreference: u.paymentPreference }));
+    return arr.map(u => ({ id: String(u.id || u._id || ''), name: u.name, phone: u.phone, email: u.email, vehicleType: u.vehicleType, carModel: u.carModel, carPlate: u.carPlate, carColor: u.carColor, rating: u.rating, available: u.available, lastKnownLocation: u.lastKnownLocation, paymentPreference: u.paymentPreference }));
   } catch (_) {
     try {
       const base = getAuthBase();
@@ -133,7 +133,7 @@ async function listDrivers(query = {}, options) {
       Object.entries(query || {}).forEach(([k, v]) => { if (v != null) url.searchParams.set(k, v); });
       const data = await httpGet(url.toString(), getAuthHeaders(undefined));
       const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-      return arr.map(u => ({ id: String(u.id || u._id || ''), name: u.name, phone: u.phone, email: u.email, vehicleType: u.vehicleType, carPlate: u.carPlate, rating: u.rating, available: u.available, paymentPreference: u.paymentPreference }));
+      return arr.map(u => ({ id: String(u.id || u._id || ''), name: u.name, phone: u.phone, email: u.email, vehicleType: u.vehicleType, carModel: u.carModel, carPlate: u.carPlate, carColor: u.carColor, rating: u.rating, available: u.available, lastKnownLocation: u.lastKnownLocation, paymentPreference: u.paymentPreference }));
     } catch (__) { return []; }
   }
 }
