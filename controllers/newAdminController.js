@@ -1,6 +1,6 @@
 const { ContractSettings, Subscription, Payment, Trip, TripSchedule, Contract, ContractType } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
-const { getDriverById, getPassengerById } = require("../utils/userService");
+const { getDriverById, getPassengerById, listDrivers } = require("../utils/userService");
 const { approvePayment, rejectPayment, getPendingPayments } = require("./paymentController");
 const { getUserInfo } = require("../utils/tokenHelper");
 
@@ -514,3 +514,60 @@ exports.getPendingPayments = asyncHandler(async (req, res, next) => {
 });
 exports.approvePayment = approvePayment;
 exports.rejectPayment = rejectPayment;
+
+// GET /admin/drivers - List drivers from external user service (not token)
+exports.getDrivers = asyncHandler(async (req, res) => {
+  const { available, search, limit, page } = req.query;
+  const query = {};
+  if (available != null) query.available = String(available) === 'true';
+  if (search) query.search = search;
+  if (limit) query.limit = parseInt(limit);
+  if (page) query.page = parseInt(page);
+
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+  const drivers = await listDrivers(query, authHeader);
+
+  res.json({
+    success: true,
+    data: drivers.map(d => ({
+      id: String(d.id || ''),
+      name: d.name || null,
+      phone: d.phone || null,
+      email: d.email || null,
+      vehicleType: d.vehicleType || null,
+      carPlate: d.carPlate || null,
+      rating: d.rating != null ? d.rating : null,
+      available: !!d.available,
+      paymentPreference: d.paymentPreference || null,
+    })),
+    total_count: drivers.length,
+    filters_applied: { available: query.available ?? null, search: search || null }
+  });
+});
+
+// GET /admin/driver/:id - Get full driver profile from external user service
+exports.getDriverDetail = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+  const d = await getDriverById(id, authHeader);
+  if (!d) {
+    return res.status(404).json({ success: false, message: 'Driver not found' });
+  }
+  res.json({
+    success: true,
+    data: {
+      id: String(d.id || id),
+      name: d.name || null,
+      phone: d.phone || null,
+      email: d.email || null,
+      vehicleType: d.vehicleType || null,
+      carModel: d.carModel || null,
+      carPlate: d.carPlate || null,
+      carColor: d.carColor || null,
+      rating: d.rating != null ? d.rating : null,
+      available: !!d.available,
+      lastKnownLocation: d.lastKnownLocation || null,
+      paymentPreference: d.paymentPreference || null,
+    }
+  });
+});

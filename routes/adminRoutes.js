@@ -35,3 +35,7 @@ router.post(
 
 // Trips
 router.get("/trips", authorize("admin"), newAdmin.getAllTrips);
+
+// Drivers (external service backed)
+router.get("/drivers", authorize("admin"), newAdmin.getDrivers);
+router.get("/driver/:id", authorize("admin"), newAdmin.getDriverDetail);

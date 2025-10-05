@@ -927,8 +927,26 @@
 			]
 		},
 		{
-			"name": "👨‍💼 Admin Workflow",
+          "name": "👨‍💼 Admin Workflow",
 			"item": [
+                {
+                    "name": "List Drivers (external)",
+                    "request": {
+                        "method": "GET",
+                        "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+                        "url": { "raw": "{{baseUrl}}/admin/drivers?available=true&search=ahmed", "host": ["{{baseUrl}}"], "path": ["admin","drivers"], "query": [ {"key":"available","value":"true"},{"key":"search","value":"ahmed"} ] }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Driver Detail (external)",
+                    "request": {
+                        "method": "GET",
+                        "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ],
+                        "url": { "raw": "{{baseUrl}}/admin/driver/{{driverId}}", "host": ["{{baseUrl}}"], "path": ["admin","driver","{{driverId}}"] }
+                    },
+                    "response": []
+                },
                 {
                     "name": "Assign Driver to Subscription",
                     "event": [
@@ -958,10 +976,7 @@
                                 "value": "application/json"
                             }
                         ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"driver_id\": \"{{driverId}}\"\n}"
-                        },
+                        "body": { "mode": "raw", "raw": "{\n  \"driver_id\": \"{{driverId}}\"\n}" },
                         "url": {
                             "raw": "{{baseUrl}}/admin/subscription/{{subscriptionId}}/assign-driver",
                             "host": ["{{baseUrl}}"],
