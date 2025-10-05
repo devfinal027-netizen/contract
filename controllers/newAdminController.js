@@ -557,10 +557,56 @@ exports.getDrivers = asyncHandler(async (req, res) => {
 exports.getDriverDetail = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-  const d = await getDriverById(id, authHeader);
+
+  // 1) Prefer token-derived info
+  const tokenDriver = await require("../utils/tokenHelper").getUserInfo(req, String(id), 'driver');
+  if (tokenDriver && tokenDriver.id) {
+    return res.json({ success: true, data: {
+      id: String(tokenDriver.id),
+      name: tokenDriver.name || null,
+      phone: tokenDriver.phone || null,
+      email: tokenDriver.email || null,
+      vehicleType: tokenDriver.vehicle_info?.vehicleType || null,
+      carModel: tokenDriver.vehicle_info?.carModel || tokenDriver.vehicle_info?.carName || null,
+      carPlate: tokenDriver.vehicle_info?.carPlate || null,
+      carColor: tokenDriver.vehicle_info?.carColor || null,
+      rating: tokenDriver.rating != null ? tokenDriver.rating : null,
+      available: tokenDriver.available != null ? !!tokenDriver.available : null,
+      lastKnownLocation: tokenDriver.lastKnownLocation || null,
+      paymentPreference: tokenDriver.paymentPreference || null,
+    }});
+  }
+
+  // 2) External service by id
+  let d = await getDriverById(id, authHeader);
+
+  // 3) As a last resort, fetch list and match by id
+  if (!d) {
+    try {
+      const list = await listDrivers({}, authHeader);
+      const found = (list || []).find(x => String(x.id) === String(id));
+      if (found) {
+        d = {
+          id: found.id,
+          name: found.name,
+          phone: found.phone,
+          email: found.email,
+          vehicleType: found.vehicleType,
+          carModel: found.carModel,
+          carPlate: found.carPlate,
+          carColor: found.carColor,
+          rating: found.rating,
+          available: found.available,
+          paymentPreference: found.paymentPreference,
+        };
+      }
+    } catch (_) {}
+  }
+
   if (!d) {
     return res.status(404).json({ success: false, message: 'Driver not found' });
   }
+
   res.json({
     success: true,
     data: {
@@ -573,7 +619,7 @@ exports.getDriverDetail = asyncHandler(async (req, res) => {
       carPlate: d.carPlate || null,
       carColor: d.carColor || null,
       rating: d.rating != null ? d.rating : null,
-      available: !!d.available,
+      available: d.available != null ? !!d.available : null,
       lastKnownLocation: d.lastKnownLocation || null,
       paymentPreference: d.paymentPreference || null,
     }
