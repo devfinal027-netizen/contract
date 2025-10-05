@@ -3,6 +3,7 @@ const { asyncHandler } = require("../middleware/errorHandler");
 const { deleteFile } = require("../utils/fileHelper");
 const path = require("path");
 const { getPassengerById, getAdminById } = require("../utils/userService");
+const { getUserInfo } = require("../utils/tokenHelper");
 
 // CREATE payment for subscription (used by newSubscriptionController)
 exports.createPaymentForSubscription = async (subscriptionId, paymentData, file = null) => {
@@ -149,23 +150,22 @@ exports.getPayments = asyncHandler(async (req, res) => {
 
   // Enrich with passenger info (name, phone, email)
   const uniquePassengerIds = [...new Set(paymentsWithUrls.map(p => p.passenger_id).filter(Boolean))];
-  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
   const passengerInfoMap = new Map();
   await Promise.all(uniquePassengerIds.map(async (pid) => {
     try {
-      const info = await getPassengerById(pid, authHeader);
+      const info = await getUserInfo(req, pid, 'passenger');
       if (info) passengerInfoMap.set(pid, info);
     } catch (_) {}
   }));
 
   const enriched = paymentsWithUrls.map(p => {
     const info = passengerInfoMap.get(p.passenger_id);
-    if (!info) return p;
+    const safe = info || {};
     return {
       ...p,
-      passenger_name: info.name || null,
-      passenger_phone: info.phone || null,
-      passenger_email: info.email || null,
+      passenger_name: safe.name || `Passenger ${String(p.passenger_id || '').slice(-4)}`,
+      passenger_phone: safe.phone || 'Not available',
+      passenger_email: safe.email || 'Not available',
     };
   });
 
@@ -329,21 +329,30 @@ exports.approvePayment = asyncHandler(async (req, res) => {
     });
   }
 
-  // Get admin details for response
-  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-  let adminInfo = null;
-  try {
-    adminInfo = await getAdminById(adminId, authHeader);
-  } catch (_) {}
+  // Get admin and passenger details for response (from token service with fallbacks)
+  const adminInfo = await getUserInfo(req, adminId, 'admin');
+  const passengerInfo = await getUserInfo(req, payment.passenger_id, 'passenger');
 
   res.json({
     success: true,
     message: "Payment approved successfully",
     data: {
       payment_id: id,
-      approved_by: adminInfo ? adminInfo.name : adminId,
+      approved_by: adminInfo?.name || String(adminId),
+      approver: {
+        id: adminInfo?.id || String(adminId),
+        name: adminInfo?.name || `Admin ${String(adminId).slice(-4)}`,
+        phone: adminInfo?.phone || 'Not available',
+        email: adminInfo?.email || 'Not available',
+      },
       approved_at: new Date(),
-      subscription_status: "ACTIVE"
+      subscription_status: "ACTIVE",
+      passenger: {
+        id: passengerInfo?.id || String(payment.passenger_id || ''),
+        name: passengerInfo?.name || `Passenger ${String(payment.passenger_id || '').slice(-4)}`,
+        phone: passengerInfo?.phone || 'Not available',
+        email: passengerInfo?.email || 'Not available'
+      }
     }
   });
 });
@@ -399,22 +408,31 @@ exports.rejectPayment = asyncHandler(async (req, res) => {
     });
   }
 
-  // Get admin details for response
-  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-  let adminInfo = null;
-  try {
-    adminInfo = await getAdminById(adminId, authHeader);
-  } catch (_) {}
+  // Get admin and passenger details for response
+  const adminInfo = await getUserInfo(req, adminId, 'admin');
+  const passengerInfo = await getUserInfo(req, payment.passenger_id, 'passenger');
 
   res.json({
     success: true,
     message: "Payment rejected",
     data: {
       payment_id: id,
-      rejected_by: adminInfo ? adminInfo.name : adminId,
+      rejected_by: adminInfo?.name || String(adminId),
+      rejector: {
+        id: adminInfo?.id || String(adminId),
+        name: adminInfo?.name || `Admin ${String(adminId).slice(-4)}`,
+        phone: adminInfo?.phone || 'Not available',
+        email: adminInfo?.email || 'Not available',
+      },
       rejected_at: new Date(),
       rejection_reason,
-      subscription_status: "PENDING"
+      subscription_status: "PENDING",
+      passenger: {
+        id: passengerInfo?.id || String(payment.passenger_id || ''),
+        name: passengerInfo?.name || `Passenger ${String(payment.passenger_id || '').slice(-4)}`,
+        phone: passengerInfo?.phone || 'Not available',
+        email: passengerInfo?.email || 'Not available'
+      }
     }
   });
 });

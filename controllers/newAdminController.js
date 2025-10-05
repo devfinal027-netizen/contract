@@ -242,12 +242,14 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
         
         return {
           ...subData,
-          passenger_name: passengerInfo?.name || subData.passenger_name || null,
-          passenger_phone: passengerInfo?.phone || subData.passenger_phone || null,
-          passenger_email: passengerInfo?.email || subData.passenger_email || null,
-          driver_name: driverInfo?.name || subData.driver_name || null,
-          driver_phone: driverInfo?.phone || subData.driver_phone || null,
-          driver_email: driverInfo?.email || subData.driver_email || null,
+          passenger_id: subscription.passenger_id,
+          passenger_name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
+          passenger_phone: passengerInfo?.phone || 'Not available',
+          passenger_email: passengerInfo?.email || 'Not available',
+          driver_id: subscription.driver_id,
+          driver_name: driverInfo?.name || (subscription.driver_id ? `Driver ${String(subscription.driver_id).slice(-4)}` : null),
+          driver_phone: driverInfo?.phone || (subscription.driver_id ? 'Not available' : null),
+          driver_email: driverInfo?.email || (subscription.driver_id ? 'Not available' : null),
           vehicle_info: driverInfo?.vehicle_info || subData.vehicle_info || null,
           expiration_date: subscription.end_date,
           days_until_expiry: daysUntilExpiry,
@@ -364,9 +366,20 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
       message: "Subscription and payment approved successfully",
       data: {
         subscription_id: subscriptionId,
-        approved_by: adminInfo?.name || adminId,
+        approved_by: adminInfo?.name || String(adminId),
+        approver: {
+          id: adminInfo?.id || String(adminId),
+          name: adminInfo?.name || `Admin ${String(adminId).slice(-4)}`,
+          phone: adminInfo?.phone || 'Not available',
+          email: adminInfo?.email || 'Not available',
+        },
         approved_at: new Date(),
-        passenger_name: passengerInfo?.name || null,
+        passenger: {
+          id: passengerInfo?.id || String(subscription.passenger_id || ''),
+          name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
+          phone: passengerInfo?.phone || 'Not available',
+          email: passengerInfo?.email || 'Not available',
+        },
         new_status: "ACTIVE",
         payment_status: "PAID"
       }
@@ -443,10 +456,12 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
 
         return {
           ...tripData,
-          passenger_name: passengerInfo?.name || `Passenger ${trip.passenger_id.slice(-4)}`,
+          passenger_id: trip.passenger_id,
+          passenger_name: passengerInfo?.name || `Passenger ${String(trip.passenger_id || '').slice(-4)}`,
           passenger_phone: passengerInfo?.phone || 'Not available',
           passenger_email: passengerInfo?.email || 'Not available',
-          driver_name: driverInfo?.name || `Driver ${trip.driver_id.slice(-4)}`,
+          driver_id: trip.driver_id,
+          driver_name: driverInfo?.name || `Driver ${String(trip.driver_id || '').slice(-4)}`,
           driver_phone: driverInfo?.phone || 'Not available',
           driver_email: driverInfo?.email || 'Not available',
           vehicle_info: driverInfo?.vehicle_info || null,
