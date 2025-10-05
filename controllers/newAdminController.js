@@ -122,29 +122,26 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       });
     }
 
-    // Verify driver exists, prefer token user info first
-    let driverInfo = await getUserInfo(req, driver_id, 'driver');
-    if (!driverInfo || !driverInfo.id) {
-      const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-      const fetched = await getDriverById(driver_id, authHeader);
-      if (fetched) {
-        driverInfo = {
-          id: String(fetched.id),
-          name: fetched.name,
-          phone: fetched.phone,
-          email: fetched.email,
-          vehicle_info: {
-            carModel: fetched.carModel,
-            carPlate: fetched.carPlate,
-            carColor: fetched.carColor,
-            vehicleType: fetched.vehicleType,
-          }
-        };
-      }
-    }
-    if (!driverInfo || !driverInfo.id) {
+    // Always fetch driver info from external service for complete data
+    const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+    const fetchedDriver = await getDriverById(driver_id, authHeader);
+    
+    if (!fetchedDriver) {
       return res.status(404).json({ success: false, message: "Driver not found" });
     }
+
+    const driverInfo = {
+      id: String(fetchedDriver.id),
+      name: fetchedDriver.name,
+      phone: fetchedDriver.phone,
+      email: fetchedDriver.email,
+      vehicle_info: {
+        carModel: fetchedDriver.carModel,
+        carPlate: fetchedDriver.carPlate,
+        carColor: fetchedDriver.carColor,
+        vehicleType: fetchedDriver.vehicleType,
+      }
+    };
 
     // Update subscription with driver assignment and store key driver fields for convenience
     await subscription.update({
@@ -159,8 +156,16 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       }
     });
 
-    // Get passenger info for response
-    const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
+    // Get passenger info from external service for complete data
+    const { getPassengerById } = require("../utils/userService");
+    const fetchedPassenger = await getPassengerById(subscription.passenger_id, authHeader);
+    
+    const passengerInfo = {
+      id: String(fetchedPassenger?.id || subscription.passenger_id),
+      name: fetchedPassenger?.name || `Passenger ${String(subscription.passenger_id).slice(-4)}`,
+      phone: fetchedPassenger?.phone || 'Not available',
+      email: fetchedPassenger?.email || 'Not available',
+    };
 
     res.json({
       success: true,
@@ -215,11 +220,35 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
       subscriptions.map(async (subscription) => {
         const subData = subscription.toJSON();
         
-        // Get user information from token
-        const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
+        // Get user information from external service for complete data
+        const { getPassengerById, getDriverById } = require("../utils/userService");
+        const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+        
+        const fetchedPassenger = await getPassengerById(subscription.passenger_id, authHeader);
+        const passengerInfo = {
+          id: String(fetchedPassenger?.id || subscription.passenger_id),
+          name: fetchedPassenger?.name || `Passenger ${String(subscription.passenger_id).slice(-4)}`,
+          phone: fetchedPassenger?.phone || 'Not available',
+          email: fetchedPassenger?.email || 'Not available',
+        };
+        
         let driverInfo = null;
         if (subscription.driver_id) {
-          driverInfo = await getUserInfo(req, subscription.driver_id, 'driver');
+          const fetchedDriver = await getDriverById(subscription.driver_id, authHeader);
+          if (fetchedDriver) {
+            driverInfo = {
+              id: String(fetchedDriver.id),
+              name: fetchedDriver.name,
+              phone: fetchedDriver.phone,
+              email: fetchedDriver.email,
+              vehicle_info: {
+                carModel: fetchedDriver.carModel,
+                carPlate: fetchedDriver.carPlate,
+                carColor: fetchedDriver.carColor,
+                vehicleType: fetchedDriver.vehicleType,
+              }
+            };
+          }
         }
 
         // Get trip history for this subscription
@@ -430,7 +459,7 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
         {
           model: Subscription,
           as: "subscription",
-          attributes: ['id', 'contract_type', 'status', 'payment_status']
+          attributes: ['id', 'contract_type_id', 'status', 'payment_status']
         },
         {
           model: TripSchedule,
@@ -446,9 +475,31 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
       trips.map(async (trip) => {
         const tripData = trip.toJSON();
         
-        // Get user information from token
-        const passengerInfo = await getUserInfo(req, trip.passenger_id, 'passenger');
-        const driverInfo = await getUserInfo(req, trip.driver_id, 'driver');
+        // Get user information from external service for complete data
+        const { getPassengerById, getDriverById } = require("../utils/userService");
+        const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+        
+        const fetchedPassenger = await getPassengerById(trip.passenger_id, authHeader);
+        const passengerInfo = {
+          id: String(fetchedPassenger?.id || trip.passenger_id),
+          name: fetchedPassenger?.name || `Passenger ${String(trip.passenger_id).slice(-4)}`,
+          phone: fetchedPassenger?.phone || 'Not available',
+          email: fetchedPassenger?.email || 'Not available',
+        };
+        
+        const fetchedDriver = await getDriverById(trip.driver_id, authHeader);
+        const driverInfo = {
+          id: String(fetchedDriver?.id || trip.driver_id),
+          name: fetchedDriver?.name || `Driver ${String(trip.driver_id).slice(-4)}`,
+          phone: fetchedDriver?.phone || 'Not available',
+          email: fetchedDriver?.email || 'Not available',
+          vehicle_info: fetchedDriver ? {
+            carModel: fetchedDriver.carModel,
+            carPlate: fetchedDriver.carPlate,
+            carColor: fetchedDriver.carColor,
+            vehicleType: fetchedDriver.vehicleType,
+          } : null
+        };
 
         // Calculate trip duration if both times are available
         let durationMinutes = null;

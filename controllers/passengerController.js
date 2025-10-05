@@ -46,32 +46,27 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Prefer getting info from token to avoid external calls
-    const { getUserInfo } = require("../utils/tokenHelper");
-    const tokenDriver = await getUserInfo(req, String(driverId), 'driver');
-    let driver = tokenDriver && tokenDriver.id ? tokenDriver : null;
-    if (!driver) {
-      const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-      const fetched = await getDriverById(driverId, authHeader);
-      if (fetched) {
-        driver = {
-          id: String(fetched.id),
-          name: fetched.name,
-          phone: fetched.phone,
-          email: fetched.email,
-          vehicle_info: {
-            carModel: fetched.carModel,
-            carPlate: fetched.carPlate,
-            carColor: fetched.carColor,
-            vehicleType: fetched.vehicleType,
-          }
-        };
-      }
-    }
-
-    if (!driver) {
+    // Always fetch driver info from external service for complete data
+    const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+    const fetched = await getDriverById(driverId, authHeader);
+    
+    if (!fetched) {
       return res.status(404).json({ success: false, message: "Driver information not found" });
     }
+
+    const driver = {
+      id: String(fetched.id),
+      name: fetched.name,
+      phone: fetched.phone,
+      email: fetched.email,
+      vehicle_info: {
+        carModel: fetched.carModel,
+        carPlate: fetched.carPlate,
+        carColor: fetched.carColor,
+        vehicleType: fetched.vehicleType,
+      },
+      type: "driver"
+    };
 
     res.json({
       success: true,

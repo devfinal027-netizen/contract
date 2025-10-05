@@ -145,12 +145,25 @@ async function getUserInfo(req, userId = null, userType = null) {
         break;
     }
 
+    // For drivers, properly map vehicle information
+    let vehicle_info = null;
+    if (targetUserType === 'driver' && userInfo) {
+      vehicle_info = {
+        carModel: userInfo.carModel || null,
+        carPlate: userInfo.carPlate || null,
+        carColor: userInfo.carColor || null,
+        vehicleType: userInfo.vehicleType || null,
+      };
+    } else if (userInfo?.vehicle_info) {
+      vehicle_info = userInfo.vehicle_info;
+    }
+
     return {
       id: String(targetUserId),
       name: userInfo?.name || `${targetUserType} ${String(targetUserId).slice(-4)}`,
       phone: userInfo?.phone || 'Not available',
       email: userInfo?.email || 'Not available',
-      vehicle_info: userInfo?.vehicle_info || null,
+      vehicle_info: vehicle_info,
       type: targetUserType
     };
   } catch (error) {
