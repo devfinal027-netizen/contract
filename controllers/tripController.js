@@ -73,6 +73,15 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
     const updatedTrip = await Trip.findByPk(trip.id);
     const passengerInfo = await getUserInfo(req, passengerId, 'passenger');
     const driverInfo = await getUserInfo(req, assignedDriverId, 'driver');
+    // Build non-null driver fields from token only (no fallbacks)
+    const safeDriverName = driverInfo?.name || `Driver ${String(assignedDriverId).slice(-4)}`;
+    const safeDriverPhone = driverInfo?.phone || 'Not available';
+    const v = driverInfo?.vehicle_info || {};
+    const safeVehicleInfo = {
+      carModel: v?.carModel || v?.vehicleType || 'Not available',
+      carPlate: v?.carPlate || 'Not available',
+      carColor: v?.carColor || 'Not available'
+    };
 
     return res.status(201).json({
       success: true,
@@ -84,9 +93,9 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
           passenger_name: passengerInfo?.name || null,
           passenger_phone: passengerInfo?.phone || null,
           passenger_email: passengerInfo?.email || null,
-          driver_name: driverInfo?.name || null,
-          driver_phone: driverInfo?.phone || null,
-          vehicle_info: driverInfo?.vehicle_info || null
+          driver_name: safeDriverName,
+          driver_phone: safeDriverPhone,
+          vehicle_info: safeVehicleInfo
         },
         confirmed_at: updatedTrip.actual_pickup_time,
         confirmed_by: passengerInfo?.name || passengerId,
@@ -168,6 +177,12 @@ exports.confirmPickup = asyncHandler(async (req, res) => {
     const updatedTrip = await Trip.findByPk(tripId);
     const passengerInfo = await getUserInfo(req, trip.passenger_id, 'passenger');
     const driverInfo = await getUserInfo(req, trip.driver_id, 'driver');
+    const v2 = driverInfo?.vehicle_info || {};
+    const safeVehicleInfo2 = {
+      carModel: v2?.carModel || v2?.vehicleType || 'Not available',
+      carPlate: v2?.carPlate || 'Not available',
+      carColor: v2?.carColor || 'Not available'
+    };
 
     res.json({
       success: true,
@@ -179,9 +194,9 @@ exports.confirmPickup = asyncHandler(async (req, res) => {
           passenger_name: passengerInfo?.name || null,
           passenger_phone: passengerInfo?.phone || null,
           passenger_email: passengerInfo?.email || null,
-          driver_name: driverInfo?.name || null,
-          driver_phone: driverInfo?.phone || null,
-          vehicle_info: driverInfo?.vehicle_info || null,
+          driver_name: driverInfo?.name || `Driver ${String(trip.driver_id).slice(-4)}`,
+          driver_phone: driverInfo?.phone || 'Not available',
+          vehicle_info: safeVehicleInfo2,
         },
         confirmed_at: updatedTrip.actual_pickup_time,
         confirmed_by: passengerInfo?.name || req.user.id,
