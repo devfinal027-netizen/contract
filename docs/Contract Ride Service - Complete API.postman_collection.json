@@ -519,7 +519,7 @@
 					]
 				},
 				{
-					"name": "Confirm Trip Pickup",
+                    "name": "Confirm Trip Pickup",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -534,7 +534,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"notes\": \"Pickup confirmed, driver arrived on time\"\n}"
+                            "raw": "{\n  \"subscription_id\": \"{{subscriptionId}}\",\n  \"notes\": \"Pickup confirmed, driver arrived on time\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/trip/pickup",

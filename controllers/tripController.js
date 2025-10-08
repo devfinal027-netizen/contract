@@ -4,7 +4,7 @@ const { getUserInfo } = require("../utils/tokenHelper");
 
 // POST /trip/pickup - Create trip at pickup and return trip_id
 exports.createTripOnPickup = asyncHandler(async (req, res) => {
-  const { notes } = req.body || {};
+  const { notes, subscription_id } = req.body || {};
 
   try {
     // Determine passenger context: if admin provided passenger_id, use it; else use authenticated passenger
@@ -15,17 +15,23 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing passenger_id for trip creation at pickup" });
     }
 
-    // Find active subscription for passenger with assigned driver
-    const activeSubscription = await Subscription.findOne({
-      where: {
-        passenger_id: passengerId,
-        status: "ACTIVE"
-      },
-      order: [["createdAt", "DESC"]]
-    });
-
-    if (!activeSubscription) {
-      return res.status(404).json({ success: false, message: "No active subscription found for passenger" });
+    // Select subscription: prefer provided subscription_id, else latest ACTIVE
+    let activeSubscription = null;
+    if (subscription_id) {
+      activeSubscription = await Subscription.findOne({
+        where: { id: String(subscription_id), passenger_id: passengerId, status: "ACTIVE" }
+      });
+      if (!activeSubscription) {
+        return res.status(404).json({ success: false, message: "Subscription not found or not active for this passenger" });
+      }
+    } else {
+      activeSubscription = await Subscription.findOne({
+        where: { passenger_id: passengerId, status: "ACTIVE" },
+        order: [["createdAt", "DESC"]]
+      });
+      if (!activeSubscription) {
+        return res.status(404).json({ success: false, message: "No active subscription found for passenger" });
+      }
     }
 
     // Require a driver to be assigned somewhere in workflow; fallback to subscription.driver_id if present
