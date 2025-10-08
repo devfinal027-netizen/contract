@@ -191,27 +191,50 @@ exports.processPayment = asyncHandler(async (req, res) => {
     return raw;
   };
 
-  const amount = parseFloat(req.body.amount || subscription.final_fare || 0);
+  // Prefer subscription's final fare; fall back to request body
+  const amount = parseFloat((subscription.final_fare ?? 0) || req.body.amount || 0);
   if (!Number.isFinite(amount) || amount <= 0) {
-    return res.status(400).json({ success: false, message: "Invalid amount" });
+    return res.status(400).json({ success: false, message: "Invalid amount (must be > 0)." });
   }
-  // Determine payment method: explicit param or user's payment preference
-  let paymentMethodRaw = req.body.payment_method || req.body.paymentMethod;
-  if (!paymentMethodRaw) {
-    try {
-      const { PaymentPreference, PaymentOption } = require("../models/indexModel");
+
+  // Determine payment method using, in order: explicit payment_option_id, explicit name, user preference
+  let paymentMethodRaw = null;
+  try {
+    const { PaymentPreference, PaymentOption } = require("../models/indexModel");
+    if (req.body && req.body.payment_option_id) {
+      const opt = await PaymentOption.findByPk(req.body.payment_option_id);
+      if (opt && opt.name) paymentMethodRaw = opt.name;
+    }
+    if (!paymentMethodRaw) {
+      paymentMethodRaw = req.body.payment_method || req.body.paymentMethod || null;
+    }
+    if (!paymentMethodRaw) {
       const pref = await PaymentPreference.findOne({ where: { user_id: String(req.user.id), user_type: String(req.user.type) } });
       if (pref) {
         const opt = await PaymentOption.findByPk(pref.payment_option_id);
         if (opt && opt.name) paymentMethodRaw = opt.name;
       }
+    }
+  } catch (_) {}
+  const paymentMethod = normalizePaymentMethod(paymentMethodRaw || 'telebirr');
+
+  // Resolve phone number strictly from token, then fallbacks to token service and subscription data
+  let tokenPhone = req.user && (req.user.phone || req.user.phoneNumber || req.user.mobile);
+  if (!tokenPhone) {
+    try {
+      const { getUserInfo } = require("../utils/tokenHelper");
+      const info = await getUserInfo(req, req.user.id, 'passenger');
+      if (info && (info.phone || info.phoneNumber || info.mobile)) {
+        tokenPhone = info.phone || info.phoneNumber || info.mobile;
+      }
     } catch (_) {}
   }
-  const paymentMethod = String(paymentMethodRaw || 'telebirr').trim();
-  const tokenPhone = req.user && (req.user.phone || req.user.phoneNumber || req.user.mobile);
-  const msisdn = normalizeMsisdnEt(tokenPhone || req.body.phoneNumber);
+  if (!tokenPhone && subscription && (subscription.passenger_phone || subscription.passengerMobile)) {
+    tokenPhone = subscription.passenger_phone || subscription.passengerMobile;
+  }
+  const msisdn = normalizeMsisdnEt(tokenPhone);
   if (!msisdn) {
-    return res.status(400).json({ success: false, message: "Invalid or missing phone in token" });
+    return res.status(400).json({ success: false, message: "Missing or invalid passenger phone; please ensure the token contains a valid +2519XXXXXXXX." });
   }
 
   try {
