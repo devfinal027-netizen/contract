@@ -90,12 +90,12 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
       || (subData.vehicle_info && subData.vehicle_info.car_color)
       || null;
 
-    const assignedDriver = {
+    // Build assigned driver and omit null/undefined fields
+    const assignedDriverRaw = {
       id: String(driverId),
       name,
       phone,
       email,
-      // Admin-like fields for parity
       vehicleType,
       carModel,
       carPlate,
@@ -104,15 +104,9 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
       available: (fetched && fetched.available) != null ? !!fetched.available : null,
       lastKnownLocation: fetched && fetched.lastKnownLocation ? fetched.lastKnownLocation : null,
       paymentPreference: fetched && fetched.paymentPreference ? fetched.paymentPreference : null,
-      // Backward compatible nested vehicle_info
-      vehicle_info: (function() {
-        if (carModel || carPlate || carColor || vehicleType) {
-          return { car_model: carModel || vehicleType || null, car_plate: carPlate || null, car_color: carColor || null };
-        }
-        return subData.vehicle_info || null;
-      })(),
       type: "driver"
     };
+    const assignedDriver = Object.fromEntries(Object.entries(assignedDriverRaw).filter(([_, v]) => v !== null && v !== undefined));
 
     return res.json({
       success: true,
@@ -128,8 +122,24 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
       }
     });
   } catch (error) {
-    // As a last resort, respond with subscription-stored fields instead of failing
+    // As a last resort, respond with subscription-stored fields, mapped to top-level
     const subData = subscription.toJSON();
+    const carModel = (subData.vehicle_info && subData.vehicle_info.car_model) || null;
+    const carPlate = (subData.vehicle_info && subData.vehicle_info.car_plate) || null;
+    const carColor = (subData.vehicle_info && subData.vehicle_info.car_color) || null;
+
+    const fallbackDriverRaw = {
+      id: String(driverId),
+      name: subData.driver_name || `Driver ${String(driverId).slice(-4)}`,
+      phone: subData.driver_phone || 'Not available',
+      email: subData.driver_email || 'Not available',
+      carModel,
+      carPlate,
+      carColor,
+      type: "driver"
+    };
+    const fallbackDriver = Object.fromEntries(Object.entries(fallbackDriverRaw).filter(([_, v]) => v !== null && v !== undefined));
+
     return res.json({
       success: true,
       data: {
@@ -140,14 +150,7 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
           start_date: subscription.start_date,
           end_date: subscription.end_date,
         },
-        assigned_driver: {
-          id: String(driverId),
-          name: subData.driver_name || `Driver ${String(driverId).slice(-4)}`,
-          phone: subData.driver_phone || 'Not available',
-          email: subData.driver_email || 'Not available',
-          vehicle_info: subData.vehicle_info || null,
-          type: "driver"
-        }
+        assigned_driver: fallbackDriver,
       }
     });
   }
