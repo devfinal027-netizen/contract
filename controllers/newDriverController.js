@@ -200,39 +200,27 @@ exports.getDriverSchedule = asyncHandler(async (req, res) => {
           || subData.passenger_phone || 'Not available';
         const email = (passengerFromToken && passengerFromToken.email)
           || subData.passenger_email || 'Not available';
-        
-        return {
+
+        const item = {
           ...subData,
           passenger_name: name,
           passenger_phone: phone,
           passenger_email: email,
         };
+        if (item.contract_id == null) delete item.contract_id;
+        return item;
       })
     );
 
-    // Group by contract type for better organization
-    const scheduleByType = enrichedSchedule.reduce((acc, subscription) => {
-      const type = subscription.contract_type;
-      if (!acc[type]) {
-        acc[type] = [];
-      }
-      acc[type].push(subscription);
-      return acc;
-    }, {});
-
-    // Calculate schedule statistics
+    // Calculate schedule statistics (without schedule_by_type)
     const stats = {
-      total_active_subscriptions: enrichedSchedule.length,
-      individual_subscriptions: scheduleByType.INDIVIDUAL?.length || 0,
-      group_subscriptions: scheduleByType.GROUP?.length || 0,
-      institutional_subscriptions: scheduleByType.INSTITUTIONAL?.length || 0,
+      total_active_subscriptions: enrichedSchedule.length
     };
 
     res.json({
       success: true,
       data: {
         schedule: enrichedSchedule,
-        schedule_by_type: scheduleByType,
         statistics: stats,
         filters_applied: { date, contract_type }
       }
@@ -366,7 +354,7 @@ exports.getDriverTripHistory = asyncHandler(async (req, res) => {
   const trips = await Trip.findAll({
       where: whereClause,
       include: [
-        { model: Subscription, as: "subscription", attributes: ["id", "passenger_name", "passenger_phone", "passenger_email"] }
+        { model: Subscription, as: "subscription", attributes: ["passenger_name", "passenger_phone", "passenger_email"] }
       ],
       order: [['actual_dropoff_time', 'DESC'], ['createdAt', 'DESC']],
     });
@@ -391,8 +379,9 @@ exports.getDriverTripHistory = asyncHandler(async (req, res) => {
           || sub.passenger_email
           || 'Not available';
         
+        const { subscription, ...rest } = tripData;
         return {
-          ...tripData,
+          ...rest,
           passenger_name: name,
           passenger_phone: phone,
           passenger_email: email,
