@@ -35,7 +35,7 @@ async function httpPost(url, body, headers) {
 }
 
 function getAuthBase() {
-  return (process.env.AUTH_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  return (process.env.AUTH_BASE_URL);
 }
 
 function getTemplate(name) {

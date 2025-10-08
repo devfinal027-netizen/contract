@@ -31,5 +31,6 @@ router.post("/:id/payment", authorize("admin", "passenger"), paymentUploader.any
 
 // Admin routes for pending items
 router.get("/pending", authorize("admin", "superadmin"), controller.getPendingSubscriptions);
+router.get("/passenger/:id/subscriptions", authorize("admin", "passenger"), controller.getPassengerSubscriptions);
 
 module.exports = router;
