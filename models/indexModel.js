@@ -11,6 +11,8 @@ const TripSchedule = require("./tripScheduleModel");
 const Pricing = require("./pricingModel");
 const ContractSettings = require("./contractSettingsModel");
 const ContractType = require("./contractTypeModel");
+const PaymentOption = require("./paymentOptionModel");
+const PaymentPreference = require("./paymentPreferenceModel");
 
 /**
  * ========================
@@ -191,6 +193,12 @@ const syncDB = async () => {
     await ContractSettings.sync({ alter: true });
     console.log("✅ ContractSettings table synced successfully!");
 
+    await PaymentOption.sync({ alter: true });
+    console.log("✅ PaymentOption table synced successfully!");
+
+    await PaymentPreference.sync({ alter: true });
+    console.log("✅ PaymentPreference table synced successfully!");
+
     console.log("✅ All Contract Service tables synced successfully!");
   } catch (error) {
     console.error("❌ Error syncing database:", error);
@@ -211,5 +219,7 @@ module.exports = {
   Pricing,
   ContractSettings,
   ContractType,
+  PaymentOption,
+  PaymentPreference,
   syncDB,
 };

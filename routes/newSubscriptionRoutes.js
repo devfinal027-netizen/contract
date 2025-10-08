@@ -28,6 +28,7 @@ function mapFirstFile(req, _res, next) {
 // Subscription creation and payment routes
 router.post("/create", authorize("passenger"), controller.createSubscription);
 router.post("/:id/payment", authorize("admin", "passenger"), paymentUploader.any(), mapFirstFile, controller.processPayment);
+router.post("/payment/webhook", controller.subscriptionPaymentWebhook);
 
 // Admin routes for pending items
 router.get("/pending", authorize("admin", "superadmin"), controller.getPendingSubscriptions);

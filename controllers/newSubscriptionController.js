@@ -4,6 +4,7 @@ const { getPassengerById, getDriverById } = require("../utils/userService");
 const { calculateSubscriptionFare, getAvailableContracts } = require("../services/subscriptionService");
 const { createPaymentForSubscription } = require("./paymentController");
 const { getUserInfo, populateUserFields } = require("../utils/tokenHelper");
+const santim = require("../utils/santimpay");
 
 // Helper function to get contract type ID from contract
 function getContractTypeId(contract) {
@@ -155,189 +156,107 @@ exports.createSubscription = asyncHandler(async (req, res) => {
 // POST /subscription/:id/payment - Process payment for subscription
 exports.processPayment = asyncHandler(async (req, res) => {
   const subscriptionId = req.params.id;
-  
-  // Debug logging
-  console.log("Payment request received:", {
-    subscriptionId,
-    contentType: req.headers['content-type'],
-    body: req.body,
-    method: req.method
-  });
-  
-  // Check if request body exists (handle both JSON and multipart/form-data)
-  if (!req.body || Object.keys(req.body).length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Request body is required. Please include payment data.",
-      debug: {
-        contentType: req.headers['content-type'],
-        method: req.method,
-        hasBody: !!req.body,
-        bodyKeys: req.body ? Object.keys(req.body) : []
-      }
-    });
-  }
-  
-  const { 
-    payment_method, 
-    transaction_reference, 
-    amount, 
-    due_date, 
-    receipt_image, 
-    status = "PENDING",
-    subscription_id 
-  } = req.body;
 
-  // Handle receipt image from form data or file upload
-  let receiptImagePath = receipt_image;
-  if (req.file) {
-    receiptImagePath = `uploads/payments/${req.file.filename}`;
-  }
-
-  if (!payment_method) {
-    return res.status(400).json({
-      success: false,
-      message: "payment_method is required"
-    });
-  }
-
-  // Debug logging
-  console.log("Looking for subscription:", {
-    subscriptionId,
-    userId: req.user?.id,
-    userIdType: typeof req.user?.id,
-    userType: req.user?.type
-  });
-
-  // First, let's check if any subscription exists with this ID
-  const allSubscriptions = await Subscription.findAll({
-    where: { id: subscriptionId }
-  });
-  console.log("Direct query result:", {
-    count: allSubscriptions.length,
-    subscriptions: allSubscriptions.map(s => ({ id: s.id, passenger_id: s.passenger_id }))
-  });
-
-  const subscription = await Subscription.findByPk(subscriptionId, {
-    include: [{ model: Contract, as: "contract" }]
-  });
-  
-  console.log("Found subscription:", {
-    found: !!subscription,
-    subscriptionId: subscription?.id,
-    passengerId: subscription?.passenger_id,
-    passengerIdType: typeof subscription?.passenger_id,
-    status: subscription?.status,
-    paymentStatus: subscription?.payment_status
-  });
-  
+  const subscription = await Subscription.findByPk(subscriptionId, { include: [{ model: Contract, as: "contract" }] });
   if (!subscription) {
-    return res.status(404).json({
-      success: false,
-      message: "Subscription not found",
-      debug: {
-        searchedId: subscriptionId,
-        userId: req.user?.id
-      }
-    });
+    return res.status(404).json({ success: false, message: "Subscription not found" });
   }
-
-  // Check if user can access this subscription
-  // Convert both IDs to strings for comparison to handle type mismatches
-  const subscriptionPassengerId = String(subscription.passenger_id);
-  const requestUserId = String(req.user.id);
-  
-  if (req.user.type === "passenger" && subscriptionPassengerId !== requestUserId) {
-    return res.status(403).json({
-      success: false,
-      message: "Access denied",
-      debug: {
-        subscriptionPassengerId: subscription.passenger_id,
-        requestUserId: req.user.id,
-        userType: req.user.type,
-        subscriptionPassengerIdStr: subscriptionPassengerId,
-        requestUserIdStr: requestUserId,
-        typesMatch: subscriptionPassengerId === requestUserId
-      }
-    });
+  if (req.user.type === "passenger" && String(subscription.passenger_id) !== String(req.user.id)) {
+    return res.status(403).json({ success: false, message: "Access denied" });
   }
-
-  // Check if subscription is in valid state for payment
   if (subscription.payment_status === "PAID") {
-    return res.status(400).json({
-      success: false,
-      message: "Subscription is already paid"
-    });
+    return res.status(400).json({ success: false, message: "Subscription is already paid" });
+  }
+
+  const normalizeMsisdnEt = (raw) => {
+    if (!raw) return null;
+    let s = String(raw).trim();
+    s = s.replace(/\s+/g, "").replace(/[-()]/g, "");
+    if (/^\+?251/.test(s)) {
+      s = s.replace(/^\+?251/, "+251");
+    } else if (/^0\d+/.test(s)) {
+      s = s.replace(/^0/, "+251");
+    } else if (/^9\d{8}$/.test(s)) {
+      s = "+251" + s;
+    }
+    if (!/^\+2519\d{8}$/.test(s)) return null;
+    return s;
+  };
+  const normalizePaymentMethod = (method) => {
+    const raw = String(method || "").trim();
+    const m = raw.toLowerCase();
+    const table = { telebirr: 'Telebirr', tele: 'Telebirr', 'tele-birr': 'Telebirr', 'tele birr': 'Telebirr', cbe: 'CBE', 'cbe-birr': 'CBE', cbebirr: 'CBE', 'cbe birr': 'CBE', hellocash: 'HelloCash', 'hello-cash': 'HelloCash', 'hello cash': 'HelloCash', mpesa: 'MPesa', 'm-pesa': 'MPesa', 'm pesa': 'MPesa', 'm_pesa': 'MPesa', abyssinia: 'Abyssinia', awash: 'Awash', dashen: 'Dashen', bunna: 'Bunna', amhara: 'Amhara', berhan: 'Berhan', zamzam: 'ZamZam', yimlu: 'Yimlu' };
+    if (table[m]) return table[m];
+    if (m.includes('bank')) return 'CBE';
+    return raw;
+  };
+
+  const amount = parseFloat(req.body.amount || subscription.final_fare || 0);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ success: false, message: "Invalid amount" });
+  }
+  // Determine payment method: explicit param or user's payment preference
+  let paymentMethodRaw = req.body.payment_method || req.body.paymentMethod;
+  if (!paymentMethodRaw) {
+    try {
+      const { PaymentPreference, PaymentOption } = require("../models/indexModel");
+      const pref = await PaymentPreference.findOne({ where: { user_id: String(req.user.id), user_type: String(req.user.type) } });
+      if (pref) {
+        const opt = await PaymentOption.findByPk(pref.payment_option_id);
+        if (opt && opt.name) paymentMethodRaw = opt.name;
+      }
+    } catch (_) {}
+  }
+  const paymentMethod = String(paymentMethodRaw || 'telebirr').trim();
+  const tokenPhone = req.user && (req.user.phone || req.user.phoneNumber || req.user.mobile);
+  const msisdn = normalizeMsisdnEt(tokenPhone || req.body.phoneNumber);
+  if (!msisdn) {
+    return res.status(400).json({ success: false, message: "Invalid or missing phone in token" });
   }
 
   try {
-    // Create payment record for admin approval
-    const paymentData = {
-      amount: amount || subscription.final_fare,
-      payment_method,
-      transaction_reference,
-      due_date: due_date ? new Date(due_date) : new Date(),
-      status: status,
-      receipt_image: receiptImagePath
-    };
+    const notifyUrl = `${process.env.PUBLIC_BASE_URL || ''}/subscription/payment/webhook`;
+    const reason = `Subscription Payment ${subscriptionId}`;
+    const gw = await santim.directPayment({ id: String(subscriptionId), amount, paymentReason: reason, notifyUrl, phoneNumber: msisdn, paymentMethod });
+    const gwTxnId = gw?.TxnId || gw?.txnId || gw?.data?.TxnId || gw?.data?.txnId || null;
 
-    console.log("Creating payment with data:", {
-      subscriptionId,
-      paymentData,
-      hasFile: !!req.file,
-      subscriptionFinalFare: subscription.final_fare
-    });
+    await Subscription.update({ payment_status: "PENDING", payment_reference: gwTxnId || String(subscriptionId) }, { where: { id: subscriptionId } });
 
-    const payment = await createPaymentForSubscription(subscriptionId, paymentData, req.file);
-    
-    console.log("Received payment from createPaymentForSubscription:", {
-      paymentType: typeof payment,
-      isNull: payment === null,
-      isUndefined: payment === undefined,
-      hasId: !!payment?.id,
-      paymentId: payment?.id,
-      paymentAmount: payment?.amount,
-      paymentMethod: payment?.payment_method,
-      paymentKeys: payment ? Object.keys(payment) : 'no keys'
-    });
-
-    // Return the expected response format
-    res.json({
-      success: true,
-      data: {
-        id: payment.id,
-        contract_id: payment.contract_id,
-        passenger_id: payment.passenger_id,
-        payment_method: payment.payment_method,
-        due_date: payment.due_date,
-        transaction_reference: payment.transaction_reference,
-        status: payment.status,
-        receipt_image: payment.receipt_image,
-        createdAt: payment.createdAt
-      }
-    });
+    return res.json({ success: true, message: "Subscription payment initiated", data: { subscription_id: subscriptionId, gatewayTxnId: gwTxnId, amount, payment_method: paymentMethod } });
   } catch (error) {
-    console.error("Error in processPayment:", {
-      error: error.message,
-      stack: error.stack,
-      subscriptionId,
-      paymentData: {
-        payment_method,
-        amount,
-        transaction_reference
-      }
-    });
-    
-    return res.status(500).json({
-      success: false,
-      message: "Error processing payment",
-      error: error.message,
-      debug: {
-        subscriptionId,
-        errorType: error.name,
-        errorCode: error.code
-      }
-    });
+    return res.status(502).json({ success: false, message: `Payment initiation failed: ${error.message}` });
+  }
+});
+
+// SantimPay webhook for subscription payments
+exports.subscriptionPaymentWebhook = asyncHandler(async (req, res) => {
+  try {
+    const body = req.body || {};
+    const data = body.data || body;
+    const thirdPartyId = data.thirdPartyId || data.ID || data.id || data.transactionId || data.clientReference;
+    const gwTxnId = data.TxnId || data.txnId;
+    const rawStatus = (data.Status || data.status || "").toString().toUpperCase();
+    const success = ["COMPLETED", "SUCCESS", "APPROVED"].includes(rawStatus);
+
+    // Match subscription by id (we used subscriptionId as id) or by stored payment_reference matching gateway txn id
+    let subscription = null;
+    if (thirdPartyId) {
+      subscription = await Subscription.findByPk(String(thirdPartyId));
+    }
+    if (!subscription && gwTxnId) {
+      subscription = await Subscription.findOne({ where: { payment_reference: String(gwTxnId) } });
+    }
+
+    if (!subscription) {
+      return res.status(200).json({ ok: false, message: "Subscription not found for webhook", thirdPartyId, txnId: gwTxnId });
+    }
+
+    const update = success ? { payment_status: "PAID", status: "ACTIVE", payment_reference: gwTxnId || subscription.payment_reference } : { payment_status: "FAILED", payment_reference: gwTxnId || subscription.payment_reference };
+    await Subscription.update(update, { where: { id: subscription.id } });
+
+    return res.status(200).json({ ok: true, subscription_id: subscription.id, status: success ? "PAID" : "FAILED", gatewayTxnId: gwTxnId });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: e.message });
   }
 });
 
@@ -362,27 +281,18 @@ exports.getPendingSubscriptions = asyncHandler(async (req, res) => {
     order: [['createdAt', 'ASC']]
   });
 
-  // Enrich with passenger info
-  const uniquePassengerIds = [...new Set(pendingSubscriptions.map(s => s.passenger_id).filter(Boolean))];
-  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-  const passengerInfoMap = new Map();
-  
-  await Promise.all(uniquePassengerIds.map(async (pid) => {
-    try {
-      const info = await getPassengerById(pid, authHeader);
-      if (info) passengerInfoMap.set(pid, info);
-    } catch (_) {}
-  }));
-
-  const enriched = pendingSubscriptions.map(subscription => {
-    const info = passengerInfoMap.get(subscription.passenger_id);
+  // Enrich with passenger info from token
+  const enriched = await Promise.all(pendingSubscriptions.map(async (subscription) => {
+    let info = null;
+    try { info = await getUserInfo(req, subscription.passenger_id, 'passenger'); } catch (_) {}
+    const sub = subscription.toJSON();
     return {
-      ...subscription.toJSON(),
-      passenger_name: info?.name || null,
-      passenger_phone: info?.phone || null,
-      passenger_email: info?.email || null,
+      ...sub,
+      passenger_name: info?.name || sub.passenger_name || null,
+      passenger_phone: info?.phone || sub.passenger_phone || null,
+      passenger_email: info?.email || sub.passenger_email || null,
     };
-  });
+  }));
 
   res.json({
     success: true,
@@ -418,25 +328,56 @@ exports.getPassengerSubscriptions = asyncHandler(async (req, res) => {
     const enrichedSubscriptions = await Promise.all(
       subscriptions.map(async (subscription) => {
         const subData = subscription.toJSON();
-        let driverInfo = null;
-        
+        let driverFromToken = null;
+        let driverFromExternal = null;
+
+        // Fetch driver from token helper (may include embedded vehicle_info)
         if (subscription.driver_id) {
-          driverInfo = await getUserInfo(req, subscription.driver_id, 'driver');
+          try {
+            driverFromToken = await getUserInfo(req, subscription.driver_id, 'driver');
+          } catch (_) {}
+
+          // Also try external user service for richer fields (admin-like)
+          try {
+            const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+            driverFromExternal = await getDriverById(subscription.driver_id, authHeader);
+          } catch (_) {}
         }
-        
+
+        // Build merged driver details with fallbacks
+        const driver_name = (driverFromExternal && driverFromExternal.name) || (driverFromToken && driverFromToken.name) || subData.driver_name || null;
+        const driver_phone = (driverFromExternal && driverFromExternal.phone) || (driverFromToken && driverFromToken.phone) || subData.driver_phone || (subscription.driver_id ? 'Not available' : null);
+        const driver_email = (driverFromExternal && driverFromExternal.email) || (driverFromToken && driverFromToken.email) || subData.driver_email || (subscription.driver_id ? 'Not available' : null);
+
+        // Normalize vehicle info to snake_case as per stored schema and sample response
+        const normalizedVehicleInfo = (function() {
+          const fromExternal = driverFromExternal ? {
+            car_model: driverFromExternal.carModel || driverFromExternal.vehicleType || null,
+            car_plate: driverFromExternal.carPlate || null,
+            car_color: driverFromExternal.carColor || null,
+          } : null;
+          const fromToken = driverFromToken && driverFromToken.vehicle_info ? {
+            car_model: driverFromToken.vehicle_info.carModel || driverFromToken.vehicle_info.vehicleType || null,
+            car_plate: driverFromToken.vehicle_info.carPlate || null,
+            car_color: driverFromToken.vehicle_info.carColor || null,
+          } : null;
+          const fromStored = subData.vehicle_info || null;
+          return fromExternal || fromToken || fromStored || null;
+        })();
+
         const endDate = new Date(subscription.end_date);
         const today = new Date();
         const daysUntilExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
-        
+
         return {
           ...subData,
           passenger_name: passengerInfo?.name || subData.passenger_name || null,
           passenger_phone: passengerInfo?.phone || subData.passenger_phone || null,
           passenger_email: passengerInfo?.email || subData.passenger_email || null,
-          driver_name: driverInfo?.name || subData.driver_name || null,
-          driver_phone: driverInfo?.phone || subData.driver_phone || null,
-          driver_email: driverInfo?.email || subData.driver_email || null,
-          vehicle_info: driverInfo?.vehicle_info || subData.vehicle_info || null,
+          driver_name,
+          driver_phone,
+          driver_email,
+          vehicle_info: normalizedVehicleInfo,
           expiration_date: subscription.end_date,
           days_until_expiry: daysUntilExpiry,
           is_expired: daysUntilExpiry < 0,

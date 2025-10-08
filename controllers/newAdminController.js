@@ -1,7 +1,7 @@
 const { ContractSettings, Subscription, Payment, Trip, TripSchedule, Contract, ContractType } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
 const { getDriverById, getPassengerById, listDrivers } = require("../utils/userService");
-const { approvePayment, rejectPayment, getPendingPayments } = require("./paymentController");
+// Payment endpoints removed as requested
 const { getUserInfo } = require("../utils/tokenHelper");
 
 // POST /admin/contracts/sample - Create sample contracts for testing
@@ -332,7 +332,7 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
   }
 });
 
-// PATCH /admin/subscription/:id/approve - Approve subscription and payment
+// PATCH /admin/subscription/:id/approve - Approve subscription only (payments removed)
 exports.approveSubscription = asyncHandler(async (req, res) => {
   const subscriptionId = String(req.params.id);
   const adminId = req.user.id;
@@ -380,22 +380,9 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
     });
 
     // Approve any pending payments for this subscription
-    if (subscription.payments && subscription.payments.length > 0) {
-      await Promise.all(
-        subscription.payments.map(payment => 
-          Payment.update({
-            admin_approved: true,
-            approved_by: adminId,
-            approved_at: new Date(),
-            status: "SUCCESS"
-          }, {
-            where: { id: payment.id }
-          })
-        )
-      );
-    }
+    // Payment approval removed
 
-    // Get admin info for response
+    // Get admin info for response (from token)
     const adminInfo = await getUserInfo(req, adminId, 'admin');
     const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
 
@@ -406,8 +393,8 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
         subscription_id: subscriptionId,
         approved_by: adminInfo?.name || String(adminId),
         approver: {
-          id: adminInfo?.id || String(adminId),
-          name: adminInfo?.name || `Admin ${String(adminId).slice(-4)}`,
+          id: String(adminId),
+          name: adminInfo?.name || `admin ${String(adminId)}`,
           phone: adminInfo?.phone || 'Not available',
           email: adminInfo?.email || 'Not available',
         },
@@ -426,6 +413,30 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error approving subscription",
+      error: error.message
+    });
+  }
+});
+
+// DELETE /admin/subscription/:id - Delete a subscription (admin only)
+exports.deleteSubscriptionByAdmin = asyncHandler(async (req, res) => {
+  const subscriptionId = String(req.params.id);
+
+  try {
+    const deleted = await Subscription.destroy({ where: { id: subscriptionId } });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Subscription not found" });
+    }
+
+    return res.json({
+      success: true,
+      message: "Subscription deleted successfully",
+      data: { subscription_id: subscriptionId }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error deleting subscription",
       error: error.message
     });
   }
@@ -574,12 +585,7 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
 });
 
 // Payment approval methods - delegate to paymentController
-exports.getPendingPayments = asyncHandler(async (req, res, next) => {
-  // Delegate, then re-map to ensure only pending are returned and enrich from token helper
-  return getPendingPayments(req, res, next);
-});
-exports.approvePayment = approvePayment;
-exports.rejectPayment = rejectPayment;
+// Removed: getPendingPayments, approvePayment, rejectPayment
 
 // GET /admin/drivers - List drivers from external user service (not token)
 exports.getDrivers = asyncHandler(async (req, res) => {
