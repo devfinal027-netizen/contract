@@ -115,8 +115,8 @@
 			"name": "💳 Payments & Wallet",
 			"item": [
 				{
-					"name": "List Payment Options",
-					"request": { "method": "GET", "header": [{"key":"Authorization","value":"Bearer {{passengerToken}}"}], "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } },
+					"name": "Partners",
+					"request": { "method": "GET", "header": [{"key":"Authorization","value":"Bearer {{passengerToken}}"}], "url": { "raw": "{{baseUrl}}/payments/partners", "host": ["{{baseUrl}}"], "path": ["payments","partners"] } },
 					"response": []
 				},
 				{
@@ -136,7 +136,7 @@
 				},
 				{
 					"name": "Wallet Topup",
-					"request": { "method": "POST", "header": [{"key":"Authorization","value":"Bearer {{driverToken}}"},{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"amount\": 100,\n  \"paymentMethod\": \"Telebirr\",\n  \"reason\": \"Wallet Topup\"\n}"}, "url": { "raw": "{{baseUrl}}/wallet/topup", "host": ["{{baseUrl}}"], "path": ["wallet","topup"] } },
+					"request": { "method": "POST", "header": [{"key":"Authorization","value":"Bearer {{driverToken}}"},{"key":"Content-Type","value":"application/json"}], "body": {"mode":"raw","raw":"{\n  \"amount\": 100,\n  \"paymentMethod\": \"telebirr\",\n  \"reason\": \"Wallet Topup\"\n}"}, "url": { "raw": "{{baseUrl}}/wallet/topup", "host": ["{{baseUrl}}"], "path": ["wallet","topup"] } },
 					"response": []
 				}
 			]
@@ -373,7 +373,7 @@
 					]
 				},
 				{
-					"name": "Submit Payment",
+					"name": "Pay Subscription (SantimPay)",
 					"event": [
 						{
 							"listen": "test",
@@ -405,10 +405,7 @@
 								"value": "application/json"
 							}
 						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"payment_method\": \"BANK_TRANSFER\",\n  \"transaction_reference\": \"REF123456\",\n  \"amount\": 1500.00,\n  \"due_date\": \"2024-02-15\",\n  \"receipt_image\": \"uploads/payments/wave_color.jpg-1756394581553-981825363.jpg\",\n  \"status\": \"PENDING\",\n  \"subscription_id\": \"{{subscriptionId}}\"\n}"
-						},
+						"body": { "mode": "raw", "raw": "{\n  \"amount\": 100,\n  \"paymentMethod\": \"telebirr\"\n}" },
 						"url": {
 							"raw": "{{baseUrl}}/subscription/{{subscriptionId}}/payment",
 							"host": ["{{baseUrl}}"],
@@ -450,7 +447,7 @@
 								}
 							],
 							"cookie": [],
-							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"3d4bb5a9-0802-463b-831e-be57ec2708f7\",\n    \"contract_id\": \"8fabe5fa-33f4-4c6e-8263-e6ca613044e5\",\n    \"passenger_id\": \"passenger-uuid-123\",\n    \"payment_method\": \"BANK_TRANSFER\",\n    \"due_date\": \"2024-02-15\",\n    \"transaction_reference\": \"REF123456\",\n    \"status\": \"PENDING\",\n    \"receipt_image\": \"uploads/payments/wave_color.jpg-1756394581553-981825363.jpg\",\n    \"createdAt\": \"2025-08-28T15:23:01.604Z\"\n  }\n}"
+							"body": "{\n  \"success\": true,\n  \"message\": \"Subscription payment initiated\",\n  \"data\": {\n    \"subscription_id\": \"{{subscriptionId}}\",\n    \"gatewayTxnId\": \"...\",\n    \"amount\": 100,\n    \"payment_method\": \"telebirr\"\n  }\n}"
 						}
 					]
 				},
