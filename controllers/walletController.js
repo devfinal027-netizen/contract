@@ -1,5 +1,4 @@
 const { randomUUID } = require("crypto");
-const mongoose = require("mongoose");
 const santim = require("../utils/santimpay");
 
 // NOTE: This project uses Sequelize models; SantimPay wallet requires Mongo models (Wallet, Transaction, PaymentOption, Driver, Commission).
@@ -184,12 +183,8 @@ exports.webhook = async (req, res) => {
       return res.status(400).json({ message: "Invalid webhook payload" });
 
     let tx = null;
-    // If thirdPartyId looks like an ObjectId, try findById
-    if (thirdPartyId && mongoose.Types.ObjectId.isValid(String(thirdPartyId))) {
-      tx = await Transaction.findById(thirdPartyId);
-    }
-    // Otherwise try our refId match (we set refId to our ObjectId string when creating the tx)
-    if (!tx && thirdPartyId) {
+    // Try our refId match (we set refId to our transaction ID when creating the tx)
+    if (thirdPartyId) {
       tx = await Transaction.findOne({ refId: String(thirdPartyId) });
     }
     // Fallback to gateway txnId
@@ -294,19 +289,11 @@ exports.webhook = async (req, res) => {
         // If this is a provider deposit for drivers, convert to package using dynamic commissionRate
         let delta = providerAmount;
         try {
-          const { Commission } = require("../models/commission");
-          const financeService = require("../services/financeService");
+          // For drivers, apply commission rate (simplified for MySQL environment)
           let commissionRate = Number(process.env.COMMISSION_RATE || 15);
-          try {
-            if (tx && tx.role === 'driver' && tx.userId) {
-              const commissionDoc = await Commission.findOne({ driverId: String(tx.userId) }).sort({ createdAt: -1 });
-              if (commissionDoc && Number.isFinite(commissionDoc.percentage)) {
-                commissionRate = commissionDoc.percentage;
-              }
-            }
-          } catch (_) {}
           if (tx.role === 'driver') {
-            delta = financeService.calculatePackage(providerAmount, commissionRate);
+            // Simple commission calculation: amount * (1 - commissionRate/100)
+            delta = providerAmount * (1 - commissionRate / 100);
           }
         } catch (_) {}
         await Wallet.updateOne(
