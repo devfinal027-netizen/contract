@@ -238,16 +238,41 @@ exports.processPayment = asyncHandler(async (req, res) => {
   }
 
   try {
-    const notifyUrl = `${process.env.PUBLIC_BASE_URL || ''}/subscription/payment/webhook`;
+    // Build absolute notify URL fallback if env not set
+    const base = (process.env.PUBLIC_BASE_URL && String(process.env.PUBLIC_BASE_URL).trim())
+      ? String(process.env.PUBLIC_BASE_URL).trim().replace(/\/$/, "")
+      : `${req.protocol}://${req.get("host")}/api`;
+    const notifyUrl = `${base}/subscription/payment/webhook`;
     const reason = `Subscription Payment ${subscriptionId}`;
+
+    // Structured debug log before gateway call (no secrets)
+    console.log("[Payment] Initiating gateway directPayment", {
+      subscriptionId: String(subscriptionId),
+      amount,
+      paymentMethod,
+      msisdn,
+      notifyUrl,
+    });
+
     const gw = await santim.directPayment({ id: String(subscriptionId), amount, paymentReason: reason, notifyUrl, phoneNumber: msisdn, paymentMethod });
     const gwTxnId = gw?.TxnId || gw?.txnId || gw?.data?.TxnId || gw?.data?.txnId || null;
+
+    console.log("[Payment] Gateway response", { ok: !!gw, gwTxnId, raw: gw });
 
     await Subscription.update({ payment_status: "PENDING", payment_reference: gwTxnId || String(subscriptionId) }, { where: { id: subscriptionId } });
 
     return res.json({ success: true, message: "Subscription payment initiated", data: { subscription_id: subscriptionId, gatewayTxnId: gwTxnId, amount, payment_method: paymentMethod } });
   } catch (error) {
-    return res.status(502).json({ success: false, message: `Payment initiation failed: ${error.message}` });
+    // Capture gateway error details for diagnostics
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+    const payloadEcho = {
+      amount,
+      paymentMethod,
+      msisdn,
+    };
+    console.error("[Payment] Gateway error", { status, data, message: error.message, payload: payloadEcho });
+    return res.status(502).json({ success: false, message: `Payment initiation failed: ${error.message}`, gateway_status: status, gateway_response: data });
   }
 });
 
