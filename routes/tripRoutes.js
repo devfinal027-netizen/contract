@@ -3,13 +3,12 @@ const router = express.Router();
 const controller = require("../controllers/tripController");
 const { authorize } = require("../middleware/auth");
 
-// Trip management routes
-router.get("/", authorize("admin", "passenger"), controller.listTrips);
+// Trip management routes (passenger-driven workflow only)
+router.get("/", authorize("passenger"), controller.listTrips);
 router.post("/pickup", authorize("passenger"), controller.createTripOnPickup);
-router.post("/", authorize("admin"), controller.createTrip);
-router.get("/:id", authorize("admin", "passenger"), controller.getTripDetails);
-router.patch("/:id/start", authorize("admin"), controller.startTrip);
-router.patch("/:id/complete", authorize("admin", "passenger"), controller.completeTrip);
+// Removed manual trip creation and start for drivers/admins to enforce passenger-driven flow
+router.get("/:id", authorize("passenger"), controller.getTripDetails);
+router.patch("/:id/complete", authorize("passenger"), controller.completeTrip);
 router.patch("/:id/pickup", authorize("passenger"), controller.confirmPickup);
 router.patch("/:id/dropoff", authorize("passenger"), controller.confirmDropoff);
 
