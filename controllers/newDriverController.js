@@ -29,8 +29,17 @@ exports.getDriverPassengers = asyncHandler(async (req, res) => {
     // Enrich with passenger information and expiration details
     const enrichedPassengers = await Promise.all(
       subscriptions.map(async (subscription) => {
-        const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
-        
+        const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+        let externalPassenger = null;
+        let tokenPassenger = null;
+        try { externalPassenger = await getPassengerById(subscription.passenger_id, authHeader); } catch (_) {}
+        try { tokenPassenger = await getUserInfo(req, subscription.passenger_id, 'passenger'); } catch (_) {}
+
+        const subData = subscription.toJSON();
+        const name = (externalPassenger && externalPassenger.name) || (tokenPassenger && tokenPassenger.name) || subData.passenger_name || `Passenger ${String(subscription.passenger_id).slice(-4)}`;
+        const phone = (externalPassenger && externalPassenger.phone) || (tokenPassenger && tokenPassenger.phone) || subData.passenger_phone || 'Not available';
+        const email = (externalPassenger && externalPassenger.email) || (tokenPassenger && tokenPassenger.email) || subData.passenger_email || 'Not available';
+
         const endDate = new Date(subscription.end_date);
         const today = new Date();
         const daysUntilExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
@@ -38,9 +47,9 @@ exports.getDriverPassengers = asyncHandler(async (req, res) => {
         return {
           subscription_id: subscription.id,
           passenger_id: subscription.passenger_id,
-          passenger_name: passengerInfo?.name || subscription.passenger_name || null,
-          passenger_phone: passengerInfo?.phone || subscription.passenger_phone || null,
-          passenger_email: passengerInfo?.email || subscription.passenger_email || null,
+          passenger_name: name,
+          passenger_phone: phone,
+          passenger_email: email,
           contract_type: subscription.contract_type,
           pickup_location: subscription.pickup_location,
           dropoff_location: subscription.dropoff_location,
