@@ -281,27 +281,18 @@ exports.getPendingSubscriptions = asyncHandler(async (req, res) => {
     order: [['createdAt', 'ASC']]
   });
 
-  // Enrich with passenger info
-  const uniquePassengerIds = [...new Set(pendingSubscriptions.map(s => s.passenger_id).filter(Boolean))];
-  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-  const passengerInfoMap = new Map();
-  
-  await Promise.all(uniquePassengerIds.map(async (pid) => {
-    try {
-      const info = await getPassengerById(pid, authHeader);
-      if (info) passengerInfoMap.set(pid, info);
-    } catch (_) {}
-  }));
-
-  const enriched = pendingSubscriptions.map(subscription => {
-    const info = passengerInfoMap.get(subscription.passenger_id);
+  // Enrich with passenger info from token
+  const enriched = await Promise.all(pendingSubscriptions.map(async (subscription) => {
+    let info = null;
+    try { info = await getUserInfo(req, subscription.passenger_id, 'passenger'); } catch (_) {}
+    const sub = subscription.toJSON();
     return {
-      ...subscription.toJSON(),
-      passenger_name: info?.name || null,
-      passenger_phone: info?.phone || null,
-      passenger_email: info?.email || null,
+      ...sub,
+      passenger_name: info?.name || sub.passenger_name || null,
+      passenger_phone: info?.phone || sub.passenger_phone || null,
+      passenger_email: info?.email || sub.passenger_email || null,
     };
-  });
+  }));
 
   res.json({
     success: true,
