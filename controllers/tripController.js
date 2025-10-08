@@ -120,18 +120,15 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
     const passengerInfo = await getUserInfo(req, passengerId, 'passenger');
     const decoded = decodeToken(req);
     const driverToken = findDriverInDecoded(decoded, assignedDriverId);
-    // Additional helper-based resolution (uses token first under the hood)
-    let driverInfoHelper = null;
-    try { driverInfoHelper = await getUserInfo(req, assignedDriverId, 'driver'); } catch (_) {}
-    
-    const resolvedName = (driverToken && (driverToken.name || driverToken.fullName)) || (driverInfoHelper && driverInfoHelper.name) || null;
-    const resolvedPhone = (driverToken && (driverToken.phone || driverToken.msisdn)) || (driverInfoHelper && driverInfoHelper.phone) || null;
+    // Build from token only; no external fallbacks
+    const resolvedName = (driverToken && (driverToken.name || driverToken.fullName)) || null;
+    const resolvedPhone = (driverToken && (driverToken.phone || driverToken.msisdn)) || null;
     const v = (driverToken && (driverToken.vehicle_info || {
       carModel: driverToken.carModel,
       carPlate: driverToken.carPlate,
       carColor: driverToken.carColor,
       vehicleType: driverToken.vehicleType,
-    })) || (driverInfoHelper && driverInfoHelper.vehicle_info) || {};
+    })) || {};
     // Fallback to subscription stored fields if token lacks details
     const subVeh = activeSubscription && activeSubscription.vehicle_info ? activeSubscription.vehicle_info : {};
     const safeVehicleInfo = {
