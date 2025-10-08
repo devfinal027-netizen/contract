@@ -608,6 +608,42 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
   }
 });
 
+// GET /admin/passenger/:id/trips - Trip history for a passenger (admin only)
+exports.getTripsByPassenger = asyncHandler(async (req, res) => {
+  const passengerId = String(req.params.id);
+  try {
+    const trips = await Trip.findAll({
+      where: { passenger_id: passengerId },
+      include: [
+        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'] },
+        { model: TripSchedule, as: "schedule", required: false }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    return res.json({ success: true, data: { passenger_id: passengerId, trips } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Error fetching passenger trips", error: error.message });
+  }
+});
+
+// GET /admin/driver/:id/trips - Trip history for a driver (admin only)
+exports.getTripsByDriver = asyncHandler(async (req, res) => {
+  const driverId = String(req.params.id);
+  try {
+    const trips = await Trip.findAll({
+      where: { driver_id: driverId },
+      include: [
+        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'] },
+        { model: TripSchedule, as: "schedule", required: false }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    return res.json({ success: true, data: { driver_id: driverId, trips } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Error fetching driver trips", error: error.message });
+  }
+});
+
 // Payment approval methods - delegate to paymentController
 // Removed: getPendingPayments, approvePayment, rejectPayment
 

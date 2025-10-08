@@ -26,6 +26,8 @@ router.post(
 
 // Trips
 router.get("/trips", authorize("admin"), newAdmin.getAllTrips);
+router.get("/passenger/:id/trips", authorize("admin"), newAdmin.getTripsByPassenger);
+router.get("/driver/:id/trips", authorize("admin"), newAdmin.getTripsByDriver);
 
 // Drivers (external service backed)
 router.get("/drivers", authorize("admin"), newAdmin.getDrivers);
