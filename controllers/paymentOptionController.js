@@ -18,26 +18,25 @@ exports.create = asyncHandler(async (req, res) => {
 exports.setPreference = asyncHandler(async (req, res) => {
   const userId = String(req.user.id);
   const userType = req.user.type;
-  const { payment_option_id } = req.body || {};
+  const { payment_option_id, is_active = true } = req.body || {};
   if (!payment_option_id) return res.status(400).json({ message: 'payment_option_id is required' });
   const opt = await PaymentOption.findByPk(payment_option_id);
   if (!opt) return res.status(404).json({ message: 'Payment option not found' });
 
   const [row, created] = await PaymentPreference.findOrCreate({
-    where: { user_id: userId, user_type: userType },
-    defaults: { user_id: userId, user_type: userType, payment_option_id }
+    where: { user_id: userId, user_type: userType, payment_option_id },
+    defaults: { user_id: userId, user_type: userType, payment_option_id, is_active: !!is_active }
   });
   if (!created) {
-    await row.update({ payment_option_id });
+    await row.update({ is_active: !!is_active });
   }
-  return res.json({ success: true, preference: { payment_option_id } });
+  return res.json({ success: true, preference: { payment_option_id, is_active: !!is_active } });
 });
 
 exports.getPreference = asyncHandler(async (req, res) => {
   const userId = String(req.user.id);
   const userType = req.user.type;
-  const pref = await PaymentPreference.findOne({ where: { user_id: userId, user_type: userType } });
-  if (!pref) return res.json({ payment_option_id: null });
-  return res.json({ payment_option_id: pref.payment_option_id });
+  const prefs = await PaymentPreference.findAll({ where: { user_id: userId, user_type: userType, is_active: true } });
+  return res.json({ preferences: prefs.map(p => ({ payment_option_id: p.payment_option_id, is_active: p.is_active })) });
 });
 

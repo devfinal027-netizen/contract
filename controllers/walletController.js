@@ -118,7 +118,18 @@ exports.topup = async (req, res) => {
     const txId = randomUUID();
     const tx = await Transaction.create({ _id: txId, refId: String(txId), userId, role, amount, type: "credit", method: "santimpay", status: "pending", msisdn, metadata: { reason } });
 
-    const methodForGateway = normalizePaymentMethod(paymentMethod);
+    // Resolve payment method from payment_option_id or explicit string
+    let methodForGateway = null;
+    if (req.body && req.body.payment_option_id) {
+      try {
+        const { PaymentOption } = require("../models/indexModel");
+        const opt = await PaymentOption.findByPk(String(req.body.payment_option_id));
+        if (opt && opt.name) methodForGateway = normalizePaymentMethod(opt.name);
+      } catch (_) {}
+    }
+    if (!methodForGateway) {
+      methodForGateway = normalizePaymentMethod(paymentMethod);
+    }
 
     const notifyUrl = process.env.SANTIMPAY_NOTIFY_URL || `${process.env.PUBLIC_BASE_URL || ""}/wallet/webhook`;
     let gw;
@@ -126,7 +137,7 @@ exports.topup = async (req, res) => {
       gw = await santim.directPayment({ id: String(txId), amount, paymentReason: reason, notifyUrl, phoneNumber: msisdn, paymentMethod: methodForGateway });
     } catch (err) {
       await Transaction.findByIdAndUpdate(txId, { status: 'failed', metadata: { gatewayError: String(err && err.message || err) } });
-      return res.status(400).json({ message: 'payment failed' });
+      return res.status(400).json({ message: err && err.message ? err.message : 'payment failed' });
     }
 
     const gwTxnId = gw?.TxnId || gw?.txnId || gw?.data?.TxnId || gw?.data?.txnId;

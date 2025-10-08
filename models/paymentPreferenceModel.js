@@ -20,6 +20,11 @@ const PaymentPreference = sequelize.define(
     payment_option_id: {
       type: DataTypes.UUID,
       allowNull: false,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
     }
   },
   {
@@ -27,7 +32,7 @@ const PaymentPreference = sequelize.define(
     timestamps: true,
     updatedAt: true,
     indexes: [
-      { unique: true, fields: ["user_id", "user_type"] }
+      { unique: true, fields: ["user_id", "user_type", "payment_option_id"] }
     ]
   }
 );
