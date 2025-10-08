@@ -126,11 +126,15 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
       carColor: driverToken.carColor,
       vehicleType: driverToken.vehicleType,
     })) || {};
+    // Fallback to subscription stored fields if token lacks details
+    const subVeh = activeSubscription && activeSubscription.vehicle_info ? activeSubscription.vehicle_info : {};
     const safeVehicleInfo = {
-      carModel: v?.carModel || v?.vehicleType || 'Not available',
-      carPlate: v?.carPlate || 'Not available',
-      carColor: v?.carColor || 'Not available'
+      carModel: v?.carModel || v?.vehicleType || subVeh?.car_model || 'Not available',
+      carPlate: v?.carPlate || subVeh?.car_plate || 'Not available',
+      carColor: v?.carColor || subVeh?.car_color || 'Not available'
     };
+    const safeDriverNameFinal = safeDriverName || activeSubscription.driver_name || `Driver ${String(assignedDriverId).slice(-4)}`;
+    const safeDriverPhoneFinal = safeDriverPhone || activeSubscription.driver_phone || 'Not available';
 
     return res.status(201).json({
       success: true,
@@ -142,8 +146,8 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
           passenger_name: passengerInfo?.name || null,
           passenger_phone: passengerInfo?.phone || null,
           passenger_email: passengerInfo?.email || null,
-          driver_name: safeDriverName,
-          driver_phone: safeDriverPhone,
+          driver_name: safeDriverNameFinal,
+          driver_phone: safeDriverPhoneFinal,
           vehicle_info: safeVehicleInfo,
           carModel: safeVehicleInfo.carModel,
           carPlate: safeVehicleInfo.carPlate,
