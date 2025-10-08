@@ -54,8 +54,9 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
     await Trip.update({
       pickup_confirmed_by_passenger: true,
       actual_pickup_time: new Date(),
-      // Note: status transitions vary in codebase; keep existing behavior compatible
-      status: "PICKUP_CONFIRMED"
+      // Use valid enum transition: SCHEDULED -> ONGOING
+      status: "ONGOING",
+      started_at: new Date()
     }, { where: { id: trip.id } });
 
     const updatedTrip = await Trip.findByPk(trip.id);
@@ -133,17 +134,18 @@ exports.confirmPickup = asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if trip is in correct state
-    if (trip.status !== "SCHEDULED") {
+    // Check if trip is in correct state (allow empty/undefined status due to prior inconsistencies)
+    if (trip.status && trip.status !== "SCHEDULED") {
       return res.status(400).json({
         success: false,
         message: `Cannot confirm pickup. Trip status is ${trip.status}`
       });
     }
 
-    // Update trip with pickup confirmation
+    // Update trip with pickup confirmation (transition to ONGOING)
     await Trip.update({
-      status: "PICKUP_CONFIRMED",
+      status: "ONGOING",
+      started_at: new Date(),
       actual_pickup_time: new Date(),
       pickup_confirmed_by_passenger: true,
       notes: notes || trip.notes
@@ -210,11 +212,12 @@ exports.confirmDropoff = asyncHandler(async (req, res) => {
       });
     }
 
-    // Check if trip is in correct state
-    if (!["PICKUP_CONFIRMED", "IN_PROGRESS"].includes(trip.status)) {
+    // Check if trip is in correct state: allow if ONGOING or if pickup already confirmed
+    const canDropoff = (trip.status === "ONGOING") || (trip.pickup_confirmed_by_passenger === true);
+    if (!canDropoff) {
       return res.status(400).json({
         success: false,
-        message: `Cannot confirm dropoff. Trip status is ${trip.status}. Pickup must be confirmed first.`
+        message: `Cannot confirm dropoff. Trip status is ${trip.status || 'UNKNOWN'}. Pickup must be confirmed first.`
       });
     }
 
