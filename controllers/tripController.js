@@ -117,15 +117,18 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
     const passengerInfo = await getUserInfo(req, passengerId, 'passenger');
     const decoded = decodeToken(req);
     const driverToken = findDriverInDecoded(decoded, assignedDriverId);
-    // Build non-null driver fields from token only
-    const safeDriverName = (driverToken && (driverToken.name || driverToken.fullName)) || `Driver ${String(assignedDriverId).slice(-4)}`;
-    const safeDriverPhone = (driverToken && (driverToken.phone || driverToken.msisdn)) || 'Not available';
+    // Additional helper-based resolution (uses token first under the hood)
+    let driverInfoHelper = null;
+    try { driverInfoHelper = await getUserInfo(req, assignedDriverId, 'driver'); } catch (_) {}
+    
+    const resolvedName = (driverToken && (driverToken.name || driverToken.fullName)) || (driverInfoHelper && driverInfoHelper.name) || null;
+    const resolvedPhone = (driverToken && (driverToken.phone || driverToken.msisdn)) || (driverInfoHelper && driverInfoHelper.phone) || null;
     const v = (driverToken && (driverToken.vehicle_info || {
       carModel: driverToken.carModel,
       carPlate: driverToken.carPlate,
       carColor: driverToken.carColor,
       vehicleType: driverToken.vehicleType,
-    })) || {};
+    })) || (driverInfoHelper && driverInfoHelper.vehicle_info) || {};
     // Fallback to subscription stored fields if token lacks details
     const subVeh = activeSubscription && activeSubscription.vehicle_info ? activeSubscription.vehicle_info : {};
     const safeVehicleInfo = {
@@ -133,8 +136,8 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
       carPlate: v?.carPlate || subVeh?.car_plate || 'Not available',
       carColor: v?.carColor || subVeh?.car_color || 'Not available'
     };
-    const safeDriverNameFinal = safeDriverName || activeSubscription.driver_name || `Driver ${String(assignedDriverId).slice(-4)}`;
-    const safeDriverPhoneFinal = safeDriverPhone || activeSubscription.driver_phone || 'Not available';
+    const safeDriverNameFinal = resolvedName || activeSubscription.driver_name || `Driver ${String(assignedDriverId).slice(-4)}`;
+    const safeDriverPhoneFinal = resolvedPhone || activeSubscription.driver_phone || 'Not available';
 
     return res.status(201).json({
       success: true,
