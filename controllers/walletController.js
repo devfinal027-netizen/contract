@@ -1,4 +1,5 @@
 const { randomUUID } = require("crypto");
+const mongoose = require("mongoose");
 const santim = require("../utils/santimpay");
 
 // NOTE: This project uses Sequelize models; SantimPay wallet requires Mongo models (Wallet, Transaction, PaymentOption, Driver, Commission).
@@ -60,6 +61,37 @@ const Transaction = {
     return out;
   }
 };
+
+// Add Mongoose-style query builder support for in-memory stubs
+function createQueryBuilder(model, filter = {}) {
+  let results = [];
+  
+  if (model === Transaction) {
+    for (const v of memory.txs.values()) {
+      if (!filter || String(v.userId) === String(filter.userId)) results.push(v);
+    }
+  }
+  
+  return {
+    sort(sortObj) {
+      if (sortObj.createdAt === -1) {
+        results.sort((a, b) => b.createdAt - a.createdAt);
+      } else if (sortObj.createdAt === 1) {
+        results.sort((a, b) => a.createdAt - b.createdAt);
+      }
+      return this;
+    },
+    lean() {
+      return this;
+    },
+    async exec() {
+      return results;
+    }
+  };
+}
+
+// Override Transaction.find to return query builder
+Transaction.find = (filter) => createQueryBuilder(Transaction, filter);
 
 function normalizeMsisdnEt(raw) {
   if (!raw) return null;
@@ -131,39 +163,50 @@ exports.topup = async (req, res) => {
 
 exports.webhook = async (req, res) => {
   try {
+    // Expect SantimPay to call with fields including txnId, Status, amount, reason, msisdn, refId, thirdPartyId
     const body = req.body || {};
     const data = body.data || body;
-    const thirdPartyId = data.thirdPartyId || data.ID || data.id || data.transactionId || data.clientReference;
+    // Debug log (can be toggled off via env)
+    if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
+      // eslint-disable-next-line no-console
+      console.log("[wallet-webhook] received:", data);
+    }
+    // Prefer the id we originally sent (provider echoes it as thirdPartyId). Do not use provider RefId as our id.
+    const thirdPartyId =
+      data.thirdPartyId ||
+      data.ID ||
+      data.id ||
+      data.transactionId ||
+      data.clientReference;
     const providerRefId = data.RefId || data.refId;
     const gwTxnId = data.TxnId || data.txnId;
-    
-    // Add logging to debug webhook responses
-    console.log("🔔 Webhook received:", {
-      body: JSON.stringify(body, null, 2),
-      thirdPartyId,
-      gwTxnId,
-      providerRefId,
-      status: data.Status || data.status
-    });
-    
-    if (!thirdPartyId && !gwTxnId) {
-      console.log("❌ Webhook: No transaction identifiers found");
-      return res.status(200).json({ ok: false, message: "Transaction not found for webhook" });
-    }
+    if (!thirdPartyId && !gwTxnId)
+      return res.status(400).json({ message: "Invalid webhook payload" });
 
     let tx = null;
-    if (thirdPartyId) tx = await Transaction.findById(thirdPartyId);
-    if (!tx && thirdPartyId) tx = await Transaction.findOne({ refId: String(thirdPartyId) });
-    if (!tx && gwTxnId) tx = await Transaction.findOne({ txnId: String(gwTxnId) });
-    
-    console.log("🔍 Transaction lookup:", { 
-      found: !!tx, 
-      thirdPartyId, 
-      gwTxnId, 
-      txId: tx?._id,
-      txStatus: tx?.status 
-    });
-    
+    // If thirdPartyId looks like an ObjectId, try findById
+    if (thirdPartyId && mongoose.Types.ObjectId.isValid(String(thirdPartyId))) {
+      tx = await Transaction.findById(thirdPartyId);
+    }
+    // Otherwise try our refId match (we set refId to our ObjectId string when creating the tx)
+    if (!tx && thirdPartyId) {
+      tx = await Transaction.findOne({ refId: String(thirdPartyId) });
+    }
+    // Fallback to gateway txnId
+    if (!tx && gwTxnId) {
+      tx = await Transaction.findOne({ txnId: String(gwTxnId) });
+    }
+    if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
+      // eslint-disable-next-line no-console
+      console.log("[wallet-webhook] match:", {
+        thirdPartyId,
+        gwTxnId,
+        providerRefId,
+        found: !!tx,
+        txId: tx ? String(tx._id) : null,
+        statusBefore: tx ? tx.status : null,
+      });
+    }
     if (!tx) {
       // If not a wallet tx, try to update a subscription payment via shared webhook
       try {
@@ -180,29 +223,138 @@ exports.webhook = async (req, res) => {
           return res.status(200).json({ ok: true, subscription_id: subscription.id, status: success ? "PAID" : "FAILED", gatewayTxnId: gwTxnId, shared: true });
         }
       } catch (_) {}
-      return res.status(200).json({ ok: false, message: "Transaction not found for webhook", thirdPartyId, txnId: gwTxnId, providerRefId });
+      // Always ACK to avoid provider retries, but indicate not found
+      return res.status(200).json({
+        ok: false,
+        message: "Transaction not found for webhook",
+        thirdPartyId,
+        txnId: gwTxnId,
+        providerRefId,
+      });
     }
 
-    const rawStatus = (data.Status || data.status || "").toString().toUpperCase();
-    const normalizedStatus = ["COMPLETED", "SUCCESS", "APPROVED"].includes(rawStatus) ? "success" : ["FAILED", "CANCELLED", "DECLINED"].includes(rawStatus) ? "failed" : "pending";
+    const rawStatus = (data.Status || data.status || "")
+      .toString()
+      .toUpperCase();
+    const normalizedStatus = ["COMPLETED", "SUCCESS", "APPROVED"].includes(
+      rawStatus
+    )
+      ? "success"
+      : ["FAILED", "CANCELLED", "DECLINED"].includes(rawStatus)
+      ? "failed"
+      : "pending";
 
     const previousStatus = tx.status;
     tx.txnId = gwTxnId || tx.txnId;
+    // Keep our refId as initially set (our ObjectId), do not overwrite with provider's RefId
     tx.refId = tx.refId || (thirdPartyId && String(thirdPartyId));
     tx.status = normalizedStatus;
+    // Numeric fields from provider
+    const n = (v) => (v == null ? undefined : Number(v));
+    tx.commission = n(data.commission) ?? n(data.Commission) ?? tx.commission;
+    tx.totalAmount =
+      n(data.totalAmount) ?? n(data.TotalAmount) ?? tx.totalAmount;
     tx.msisdn = data.Msisdn || data.msisdn || tx.msisdn;
-    tx.metadata = { ...tx.metadata, webhook: data, raw: body };
+    tx.metadata = {
+      ...tx.metadata,
+      webhook: data,
+      raw: body,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      merId: data.merId,
+      merName: data.merName,
+      paymentVia: data.paymentVia || data.PaymentMethod,
+      commissionAmountInPercent: data.commissionAmountInPercent,
+      providerCommissionAmountInPercent: data.providerCommissionAmountInPercent,
+      vatAmountInPercent: data.vatAmountInPercent || data.VatAmountInPercent,
+      lotteryTax: data.lotteryTax,
+      reason: data.reason,
+    };
     tx.updatedAt = new Date();
-    await Transaction.findByIdAndUpdate(tx._id, tx);
 
-    const wasFinal = previousStatus === "success" || previousStatus === "failed";
-    if (!wasFinal && normalizedStatus === "success") {
-      const providerAmount = Number(data.adjustedAmount || data.amount || tx.amount);
-      await Wallet.updateOne({ userId: tx.userId, role: tx.role }, { $inc: { balance: providerAmount } }, { upsert: true });
+    // Idempotency: if already final state, do not re-apply wallet mutation
+    const wasFinal =
+      previousStatus === "success" || previousStatus === "failed";
+    await tx.save();
+    if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
+      // eslint-disable-next-line no-console
+      console.log("[wallet-webhook] updated tx:", {
+        txId: String(tx._id),
+        statusAfter: tx.status,
+      });
     }
 
-    return res.status(200).json({ ok: true, txnId: data.TxnId || data.txnId, refId: data.RefId || data.refId, thirdPartyId: data.thirdPartyId, status: data.Status || data.status, amount: data.amount || data.Amount || data.TotalAmount, msisdn: data.Msisdn || data.msisdn, updatedAt: new Date() });
+    if (!wasFinal && normalizedStatus === "success") {
+      // For credits, prefer adjustedAmount (intended topup) then amount; for debits, prefer amount then adjustedAmount
+      const providerAmount =
+        tx.type === "credit"
+          ? n(data.adjustedAmount) ?? n(data.amount) ?? tx.amount
+          : n(data.amount) ?? n(data.adjustedAmount) ?? tx.amount;
+      if (tx.type === "credit") {
+        // If this is a provider deposit for drivers, convert to package using dynamic commissionRate
+        let delta = providerAmount;
+        try {
+          const { Commission } = require("../models/commission");
+          const financeService = require("../services/financeService");
+          let commissionRate = Number(process.env.COMMISSION_RATE || 15);
+          try {
+            if (tx && tx.role === 'driver' && tx.userId) {
+              const commissionDoc = await Commission.findOne({ driverId: String(tx.userId) }).sort({ createdAt: -1 });
+              if (commissionDoc && Number.isFinite(commissionDoc.percentage)) {
+                commissionRate = commissionDoc.percentage;
+              }
+            }
+          } catch (_) {}
+          if (tx.role === 'driver') {
+            delta = financeService.calculatePackage(providerAmount, commissionRate);
+          }
+        } catch (_) {}
+        await Wallet.updateOne(
+          { userId: tx.userId, role: tx.role },
+          { $inc: { balance: delta } },
+          { upsert: true }
+        );
+      } else if (tx.type === "debit") {
+        await Wallet.updateOne(
+          { userId: tx.userId, role: tx.role },
+          { $inc: { balance: -providerAmount } },
+          { upsert: true }
+        );
+      }
+      if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
+        // eslint-disable-next-line no-console
+        console.log("[wallet-webhook] wallet mutated:", {
+          userId: tx.userId,
+          role: tx.role,
+          type: tx.type,
+          delta: tx.type === "credit" ? providerAmount : -providerAmount,
+        });
+      }
+    }
+
+    // Respond with concise, important fields only
+    return res.status(200).json({
+      ok: true,
+      txnId: data.TxnId || data.txnId,
+      refId: data.RefId || data.refId,
+      thirdPartyId: data.thirdPartyId,
+      status: data.Status || data.status,
+      statusReason: data.StatusReason || data.message,
+      amount: data.amount || data.Amount || data.TotalAmount,
+      currency: data.currency || data.Currency || "ETB",
+      msisdn: data.Msisdn || data.msisdn,
+      paymentVia: data.paymentVia || data.PaymentMethod,
+      message: data.message,
+      updateType: data.updateType || data.UpdateType,
+      updatedAt: new Date(),
+      updatedBy: data.updatedBy || data.UpdatedBy,
+    });
   } catch (e) {
+    // Always ACK with ok=false to prevent retries storms; log error
+    if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
+      // eslint-disable-next-line no-console
+      console.error("[wallet-webhook] error:", e);
+    }
     return res.status(200).json({ ok: false, error: e.message });
   }
 };
@@ -210,19 +362,12 @@ exports.webhook = async (req, res) => {
 exports.transactions = async (req, res) => {
   try {
     const userId = req.params.userId || req.user.id;
-    console.log("📊 Transactions request:", { 
-      userId, 
-      paramsUserId: req.params.userId, 
-      userFromToken: req.user.id,
-      userType: req.user.type 
-    });
-    
-    const rows = await Transaction.find({ userId: String(userId) });
-    console.log("📊 Found transactions:", { count: rows.length, userId: String(userId) });
-    
+    const rows = await Transaction.find({ userId: String(userId) })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
     return res.json(rows);
   } catch (e) {
-    console.error("❌ Transactions error:", e);
     return res.status(500).json({ message: e.message });
   }
 };
