@@ -65,7 +65,9 @@
         {
           "name": "Trips",
           "item": [
-            { "name": "Get All Trips", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/admin/trips", "host": ["{{baseUrl}}"], "path": ["admin","trips"] } } }
+            { "name": "Get All Trips", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/admin/trips", "host": ["{{baseUrl}}"], "path": ["admin","trips"] } } },
+            { "name": "Get Passenger Trips", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/admin/passenger/{{passengerId}}/trips", "host": ["{{baseUrl}}"], "path": ["admin","passenger","{{passengerId}}","trips"] } } },
+            { "name": "Get Driver Trips", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/admin/driver/{{driverId}}/trips", "host": ["{{baseUrl}}"], "path": ["admin","driver","{{driverId}}","trips"] } } }
           ]
         },
         {
@@ -124,9 +126,9 @@
         {
           "name": "Trips",
           "item": [
-            { "name": "Confirm Pickup", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"subscription_id\": \"{{subscriptionId}}\",\n  \"notes\": \"Pickup confirmed\"\n}" }, "url": { "raw": "{{baseUrl}}/trip/pickup", "host": ["{{baseUrl}}"], "path": ["trip","pickup"] } } },
-            { "name": "Confirm Dropoff", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Done\",\n  \"rating\": 5\n}" }, "url": { "raw": "{{baseUrl}}/trip/{{tripId}}/dropoff", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}","dropoff"] } } },
-            { "name": "List Trips", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/trip", "host": ["{{baseUrl}}"], "path": ["trip"] } } }
+            { "name": "Confirm Pickup (creates Trip)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"subscription_id\": \"{{subscriptionId}}\",\n  \"notes\": \"Pickup confirmed\"\n}" }, "url": { "raw": "{{baseUrl}}/trip/pickup", "host": ["{{baseUrl}}"], "path": ["trip","pickup"] } } },
+            { "name": "Confirm Dropoff (use trip_id from pickup)", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Done\",\n  \"rating\": 5\n}" }, "url": { "raw": "{{baseUrl}}/trip/{{tripId}}/dropoff", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}","dropoff"] } } },
+            { "name": "List My Trips", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/trip", "host": ["{{baseUrl}}"], "path": ["trip"] } } }
           ]
         }
       ]
