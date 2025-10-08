@@ -1,6 +1,52 @@
 const { Subscription, Trip, TripSchedule } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
 const jwt = require('jsonwebtoken');
+
+// Helper: decode JWT from Authorization header
+function decodeToken(req) {
+  try {
+    const authz = req.headers && req.headers.authorization ? req.headers.authorization : null;
+    if (!authz) return null;
+    const clean = authz.startsWith('Bearer ') ? authz.slice(7) : authz;
+    return jwt.verify(clean, process.env.JWT_SECRET || 'secret');
+  } catch (_) { return null; }
+}
+
+// Helper: find passenger info object in decoded token structures
+function findPassengerInDecoded(decoded, passengerId) {
+  if (!decoded) return null;
+  const candidates = [
+    decoded.passengers,
+    decoded.assignedPassengers,
+    decoded.users,
+    decoded.userList,
+    decoded.data,
+    decoded.payload,
+    decoded.context,
+    decoded.user && decoded.user.passengers,
+    decoded.user && decoded.user.users,
+    decoded.user && decoded.user.data
+  ];
+
+  const isMatch = (u) => {
+    if (!u) return false;
+    const id = u.id || u._id || (u.user && (u.user.id || u.user._id));
+    return id != null && String(id) === String(passengerId);
+  };
+
+  for (const cont of candidates) {
+    if (!cont) continue;
+    if (Array.isArray(cont)) {
+      const found = cont.find(isMatch);
+      if (found) return found;
+    } else if (typeof cont === 'object') {
+      if (cont[String(passengerId)]) return cont[String(passengerId)];
+      const found = Object.values(cont).find(isMatch);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 const { Op } = require("sequelize");
 
 // GET /driver/:id/passengers - Get driver's subscribed passengers with contract expiration and payment status
@@ -25,58 +71,13 @@ exports.getDriverPassengers = asyncHandler(async (req, res) => {
       order: [['end_date', 'ASC']],
     });
 
-    // Decode JWT once and prepare token-only passenger lookup (no external fallback)
-    let decodedAll = null;
-    try {
-      const authz = req.headers && req.headers.authorization ? req.headers.authorization : null;
-      if (authz) {
-        const clean = authz.startsWith('Bearer ') ? authz.slice(7) : authz;
-        decodedAll = jwt.verify(clean, process.env.JWT_SECRET || 'secret');
-      }
-    } catch (_) {}
-
-    function findPassengerInToken(passengerId) {
-      const candidates = [];
-      if (decodedAll) {
-        candidates.push(
-          decodedAll.passengers,
-          decodedAll.assignedPassengers,
-          decodedAll.users,
-          decodedAll.userList,
-          decodedAll.data,
-          decodedAll.payload,
-          decodedAll.context,
-          decodedAll.user && decodedAll.user.passengers,
-          decodedAll.user && decodedAll.user.users,
-          decodedAll.user && decodedAll.user.data
-        );
-      }
-
-      const isMatch = (u) => {
-        if (!u) return false;
-        const id = u.id || u._id || (u.user && (u.user.id || u.user._id));
-        return id != null && String(id) === String(passengerId);
-      };
-
-      for (const cont of candidates) {
-        if (!cont) continue;
-        if (Array.isArray(cont)) {
-          const found = cont.find(isMatch);
-          if (found) return found;
-        } else if (typeof cont === 'object') {
-          if (cont[String(passengerId)]) return cont[String(passengerId)];
-          const found = Object.values(cont).find(isMatch);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
+    const decoded = decodeToken(req);
 
     // Enrich with passenger information and expiration details
     const enrichedPassengers = await Promise.all(
       subscriptions.map(async (subscription) => {
         const subData = subscription.toJSON();
-        const passengerFromToken = findPassengerInToken(subscription.passenger_id);
+        const passengerFromToken = findPassengerInDecoded(decoded, subscription.passenger_id);
 
         const name = passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName) 
           || subData.passenger_name 
@@ -184,17 +185,20 @@ exports.getDriverSchedule = asyncHandler(async (req, res) => {
       order: [['start_date', 'ASC'], ['createdAt', 'DESC']],
     });
 
+    // Decode token once
+    const decoded = decodeToken(req);
+
     // Enrich schedule with passenger information and organize by contract type
     const enrichedSchedule = await Promise.all(
       scheduleSubscriptions.map(async (subscription) => {
         const subData = subscription.toJSON();
-        const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
+        const passengerFromToken = findPassengerInDecoded(decoded, subscription.passenger_id);
         
         return {
           ...subData,
-          passenger_name: passengerInfo?.name || subscription.passenger_name || null,
-          passenger_phone: passengerInfo?.phone || subscription.passenger_phone || null,
-          passenger_email: passengerInfo?.email || subscription.passenger_email || null,
+          passenger_name: (passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName)) || subscription.passenger_name || null,
+          passenger_phone: (passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn)) || subscription.passenger_phone || null,
+          passenger_email: (passengerFromToken && passengerFromToken.email) || subscription.passenger_email || null,
         };
       })
     );
@@ -357,17 +361,20 @@ exports.getDriverTripHistory = asyncHandler(async (req, res) => {
     order: [['actual_dropoff_time', 'DESC'], ['createdAt', 'DESC']],
     });
 
+    // Decode token once
+    const decoded = decodeToken(req);
+
     // Enrich trips with passenger information
     const enrichedTrips = await Promise.all(
       trips.map(async (trip) => {
         const tripData = trip.toJSON();
-        const passengerInfo = await getUserInfo(req, trip.passenger_id, 'passenger');
+        const passengerFromToken = findPassengerInDecoded(decoded, trip.passenger_id);
         
         return {
           ...tripData,
-          passenger_name: passengerInfo?.name || null,
-          passenger_phone: passengerInfo?.phone || null,
-          passenger_email: passengerInfo?.email || null,
+          passenger_name: (passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName)) || null,
+          passenger_phone: (passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn)) || null,
+          passenger_email: (passengerFromToken && passengerFromToken.email) || null,
           trip_duration: trip.actual_dropoff_time && trip.actual_pickup_time ? 
             Math.round((new Date(trip.actual_dropoff_time) - new Date(trip.actual_pickup_time)) / (1000 * 60)) : null, // in minutes
         };
