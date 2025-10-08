@@ -195,7 +195,19 @@ exports.processPayment = asyncHandler(async (req, res) => {
   if (!Number.isFinite(amount) || amount <= 0) {
     return res.status(400).json({ success: false, message: "Invalid amount" });
   }
-  const paymentMethod = normalizePaymentMethod(req.body.payment_method || req.body.paymentMethod || 'Telebirr');
+  // Determine payment method: explicit param or user's payment preference
+  let paymentMethodRaw = req.body.payment_method || req.body.paymentMethod;
+  if (!paymentMethodRaw) {
+    try {
+      const { PaymentPreference, PaymentOption } = require("../models/indexModel");
+      const pref = await PaymentPreference.findOne({ where: { user_id: String(req.user.id), user_type: String(req.user.type) } });
+      if (pref) {
+        const opt = await PaymentOption.findByPk(pref.payment_option_id);
+        if (opt && opt.name) paymentMethodRaw = opt.name;
+      }
+    } catch (_) {}
+  }
+  const paymentMethod = normalizePaymentMethod(paymentMethodRaw || 'Telebirr');
   const tokenPhone = req.user && (req.user.phone || req.user.phoneNumber || req.user.mobile);
   const msisdn = normalizeMsisdnEt(tokenPhone || req.body.phoneNumber);
   if (!msisdn) {
