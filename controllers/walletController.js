@@ -1,96 +1,6 @@
 const { randomUUID } = require("crypto");
 const santim = require("../utils/santimpay");
-
-// NOTE: This project uses Sequelize models; SantimPay wallet requires Mongo models (Wallet, Transaction, PaymentOption, Driver, Commission).
-// Since they are not present in this codebase, we stub minimal in-memory replacements to avoid runtime errors.
-// Replace these with your actual Mongoose models in your environment.
-
-const memory = { wallets: new Map(), txs: new Map() };
-
-const Wallet = {
-  async findOne(query) {
-    const key = `${query.userId}:${query.role}`;
-    const found = memory.wallets.get(key);
-    return found ? { ...found, save: async function() { memory.wallets.set(key, this); } } : null;
-  },
-  async create(doc) {
-    const key = `${doc.userId}:${doc.role}`;
-    memory.wallets.set(key, { ...doc });
-    return memory.wallets.get(key);
-  },
-  async updateOne(filter, update) {
-    const key = `${filter.userId}:${filter.role}`;
-    const cur = memory.wallets.get(key) || { userId: filter.userId, role: filter.role, balance: 0 };
-    const inc = (update.$inc && update.$inc.balance) || 0;
-    cur.balance = (cur.balance || 0) + inc;
-    memory.wallets.set(key, cur);
-    return { acknowledged: true };
-  }
-};
-
-const Transaction = {
-  async create(doc) {
-    const id = doc._id || randomUUID();
-    const entry = { ...doc, _id: id, createdAt: new Date(), updatedAt: new Date() };
-    memory.txs.set(String(id), entry);
-    return entry;
-  },
-  async findByIdAndUpdate(id, update) {
-    const cur = memory.txs.get(String(id));
-    if (!cur) return null;
-    Object.assign(cur, update, { updatedAt: new Date() });
-    memory.txs.set(String(id), cur);
-    return cur;
-  },
-  async findById(id) { return memory.txs.get(String(id)) || null; },
-  async findOne(filter) {
-    for (const v of memory.txs.values()) {
-      let ok = true;
-      for (const [k, val] of Object.entries(filter)) { if (String(v[k]) !== String(val)) ok = false; }
-      if (ok) return v;
-    }
-    return null;
-  },
-  async find(filter) {
-    const out = [];
-    for (const v of memory.txs.values()) {
-      if (!filter || String(v.userId) === String(filter.userId)) out.push(v);
-    }
-    out.sort((a, b) => b.createdAt - a.createdAt);
-    return out;
-  }
-};
-
-// Add Mongoose-style query builder support for in-memory stubs
-function createQueryBuilder(model, filter = {}) {
-  let results = [];
-  
-  if (model === Transaction) {
-    for (const v of memory.txs.values()) {
-      if (!filter || String(v.userId) === String(filter.userId)) results.push(v);
-    }
-  }
-  
-  return {
-    sort(sortObj) {
-      if (sortObj.createdAt === -1) {
-        results.sort((a, b) => b.createdAt - a.createdAt);
-      } else if (sortObj.createdAt === 1) {
-        results.sort((a, b) => a.createdAt - b.createdAt);
-      }
-      return this;
-    },
-    lean() {
-      return this;
-    },
-    async exec() {
-      return results;
-    }
-  };
-}
-
-// Override Transaction.find to return query builder
-Transaction.find = (filter) => createQueryBuilder(Transaction, filter);
+const { Wallet, Transaction } = require("../models/indexModel");
 
 function normalizeMsisdnEt(raw) {
   if (!raw) return null;
@@ -123,11 +33,22 @@ exports.topup = async (req, res) => {
     const userId = String(req.user.id);
     const role = req.user.type;
 
-    let wallet = await Wallet.findOne({ userId, role });
+    let wallet = await Wallet.findOne({ where: { userId, role } });
     if (!wallet) wallet = await Wallet.create({ userId, role, balance: 0 });
 
     const txId = randomUUID();
-    const tx = await Transaction.create({ _id: txId, refId: String(txId), userId, role, amount, type: "credit", method: "santimpay", status: "pending", msisdn, metadata: { reason } });
+    const tx = await Transaction.create({ 
+      refId: String(txId), 
+      userId, 
+      role, 
+      amount, 
+      type: "credit", 
+      method: "santimpay", 
+      status: "pending", 
+      msisdn, 
+      walletId: wallet.id,
+      metadata: { reason } 
+    });
 
     // Resolve payment method from payment_option_id or explicit string
     let methodForGateway = null;
@@ -147,12 +68,18 @@ exports.topup = async (req, res) => {
     try {
       gw = await santim.directPayment({ id: String(txId), amount, paymentReason: reason, notifyUrl, phoneNumber: msisdn, paymentMethod: methodForGateway });
     } catch (err) {
-      await Transaction.findByIdAndUpdate(txId, { status: 'failed', metadata: { gatewayError: String(err && err.message || err) } });
+      await Transaction.update(
+        { status: 'failed', metadata: { gatewayError: String(err && err.message || err) } },
+        { where: { refId: String(txId) } }
+      );
       return res.status(400).json({ message: err && err.message ? err.message : 'payment failed' });
     }
 
     const gwTxnId = gw?.TxnId || gw?.txnId || gw?.data?.TxnId || gw?.data?.txnId;
-    await Transaction.findByIdAndUpdate(txId, { txnId: gwTxnId, metadata: { ...tx.metadata, gatewayResponse: gw } });
+    await Transaction.update(
+      { txnId: gwTxnId, metadata: { ...tx.metadata, gatewayResponse: gw } },
+      { where: { refId: String(txId) } }
+    );
 
     return res.status(202).json({ message: "Topup initiated", transactionId: String(txId), gatewayTxnId: gwTxnId });
   } catch (e) {
@@ -185,11 +112,11 @@ exports.webhook = async (req, res) => {
     let tx = null;
     // Try our refId match (we set refId to our transaction ID when creating the tx)
     if (thirdPartyId) {
-      tx = await Transaction.findOne({ refId: String(thirdPartyId) });
+      tx = await Transaction.findOne({ where: { refId: String(thirdPartyId) } });
     }
     // Fallback to gateway txnId
     if (!tx && gwTxnId) {
-      tx = await Transaction.findOne({ txnId: String(gwTxnId) });
+      tx = await Transaction.findOne({ where: { txnId: String(gwTxnId) } });
     }
     if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
       // eslint-disable-next-line no-console
@@ -296,17 +223,19 @@ exports.webhook = async (req, res) => {
             delta = providerAmount * (1 - commissionRate / 100);
           }
         } catch (_) {}
-        await Wallet.updateOne(
-          { userId: tx.userId, role: tx.role },
-          { $inc: { balance: delta } },
-          { upsert: true }
-        );
+        // Find or create wallet and update balance
+        let wallet = await Wallet.findOne({ where: { userId: tx.userId, role: tx.role } });
+        if (!wallet) {
+          wallet = await Wallet.create({ userId: tx.userId, role: tx.role, balance: 0 });
+        }
+        await wallet.update({ balance: parseFloat(wallet.balance) + delta });
       } else if (tx.type === "debit") {
-        await Wallet.updateOne(
-          { userId: tx.userId, role: tx.role },
-          { $inc: { balance: -providerAmount } },
-          { upsert: true }
-        );
+        // Find or create wallet and update balance for debit
+        let wallet = await Wallet.findOne({ where: { userId: tx.userId, role: tx.role } });
+        if (!wallet) {
+          wallet = await Wallet.create({ userId: tx.userId, role: tx.role, balance: 0 });
+        }
+        await wallet.update({ balance: parseFloat(wallet.balance) - providerAmount });
       }
       if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
         // eslint-disable-next-line no-console
@@ -349,32 +278,39 @@ exports.webhook = async (req, res) => {
 exports.transactions = async (req, res) => {
   try {
     const userId = req.params.userId || req.user.id;
-    const rows = await Transaction.find({ userId: String(userId) })
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
+    const rows = await Transaction.findAll({ 
+      where: { userId: String(userId) },
+      order: [['createdAt', 'DESC']]
+    });
     return res.json(rows);
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
 };
 
-// Admin helpers (in-memory impl)
+// Admin helpers (MySQL implementation)
 exports.adminBalances = async (req, res) => {
   try {
     if (req.user.type !== 'admin') return res.status(403).json({ message: 'Access denied' });
-    const out = [];
-    for (const [key, w] of memory.wallets.entries()) {
-      out.push({ userId: w.userId, role: w.role, balance: w.balance });
-    }
-    return res.json({ balances: out });
+    const wallets = await Wallet.findAll({
+      where: { isActive: true },
+      attributes: ['userId', 'role', 'balance', 'currency', 'lastTransactionAt']
+    });
+    return res.json({ balances: wallets });
   } catch (e) { return res.status(500).json({ message: e.message }); }
 };
 
 exports.adminTransactions = async (req, res) => {
   try {
     if (req.user.type !== 'admin') return res.status(403).json({ message: 'Access denied' });
-    const rows = await Transaction.find({});
+    const rows = await Transaction.findAll({
+      order: [['createdAt', 'DESC']],
+      include: [{
+        model: Wallet,
+        as: 'wallet',
+        attributes: ['userId', 'role']
+      }]
+    });
     return res.json({ transactions: rows });
   } catch (e) { return res.status(500).json({ message: e.message }); }
 };
@@ -387,17 +323,20 @@ exports.withdraw = async (req, res) => {
   }
 };
 
-// Debug endpoint to see in-memory storage
+// Debug endpoint to see MySQL storage
 exports.debug = async (req, res) => {
   try {
-    const wallets = Array.from(memory.wallets.entries()).map(([key, wallet]) => ({ key, ...wallet }));
-    const transactions = Array.from(memory.txs.entries()).map(([id, tx]) => ({ id, ...tx }));
+    const wallets = await Wallet.findAll();
+    const transactions = await Transaction.findAll({
+      order: [['createdAt', 'DESC']],
+      limit: 50
+    });
     
     return res.json({
       wallets,
       transactions,
-      walletCount: memory.wallets.size,
-      transactionCount: memory.txs.size
+      walletCount: wallets.length,
+      transactionCount: transactions.length
     });
   } catch (e) {
     return res.status(500).json({ message: e.message });

@@ -13,6 +13,8 @@ const ContractSettings = require("./contractSettingsModel");
 const ContractType = require("./contractTypeModel");
 const PaymentOption = require("./paymentOptionModel");
 const PaymentPreference = require("./paymentPreferenceModel");
+const Wallet = require("./walletModel");
+const Transaction = require("./transactionModel");
 
 /**
  * ========================
@@ -148,6 +150,20 @@ ContractType.hasMany(Subscription, {
 // Trip ↔ Driver (external reference → driver service)
 // 👉 note: not hard foreign keys here, just IDs stored.
 
+// Wallet ↔ Transaction (1:N)
+Wallet.hasMany(Transaction, {
+  foreignKey: "walletId",
+  as: "transactions",
+  onDelete: "SET NULL",
+  onUpdate: "CASCADE",
+});
+Transaction.belongsTo(Wallet, {
+  foreignKey: "walletId",
+  as: "wallet",
+  onDelete: "SET NULL",
+  onUpdate: "CASCADE",
+});
+
 /**
  * ========================
  * Database Sync Function
@@ -200,6 +216,12 @@ const syncDB = async () => {
     await PaymentPreference.sync({ alter: true });
     console.log("✅ PaymentPreference table synced successfully!");
 
+    await Wallet.sync({ alter: true });
+    console.log("✅ Wallet table synced successfully!");
+
+    await Transaction.sync({ alter: true });
+    console.log("✅ Transaction table synced successfully!");
+
     console.log("✅ All Contract Service tables synced successfully!");
   } catch (error) {
     console.error("❌ Error syncing database:", error);
@@ -222,5 +244,7 @@ module.exports = {
   ContractType,
   PaymentOption,
   PaymentPreference,
+  Wallet,
+  Transaction,
   syncDB,
 };
