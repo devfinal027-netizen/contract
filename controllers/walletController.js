@@ -136,12 +136,34 @@ exports.webhook = async (req, res) => {
     const thirdPartyId = data.thirdPartyId || data.ID || data.id || data.transactionId || data.clientReference;
     const providerRefId = data.RefId || data.refId;
     const gwTxnId = data.TxnId || data.txnId;
-    if (!thirdPartyId && !gwTxnId) return res.status(200).json({ ok: false, message: "Transaction not found for webhook" });
+    
+    // Add logging to debug webhook responses
+    console.log("🔔 Webhook received:", {
+      body: JSON.stringify(body, null, 2),
+      thirdPartyId,
+      gwTxnId,
+      providerRefId,
+      status: data.Status || data.status
+    });
+    
+    if (!thirdPartyId && !gwTxnId) {
+      console.log("❌ Webhook: No transaction identifiers found");
+      return res.status(200).json({ ok: false, message: "Transaction not found for webhook" });
+    }
 
     let tx = null;
     if (thirdPartyId) tx = await Transaction.findById(thirdPartyId);
     if (!tx && thirdPartyId) tx = await Transaction.findOne({ refId: String(thirdPartyId) });
     if (!tx && gwTxnId) tx = await Transaction.findOne({ txnId: String(gwTxnId) });
+    
+    console.log("🔍 Transaction lookup:", { 
+      found: !!tx, 
+      thirdPartyId, 
+      gwTxnId, 
+      txId: tx?._id,
+      txStatus: tx?.status 
+    });
+    
     if (!tx) {
       // If not a wallet tx, try to update a subscription payment via shared webhook
       try {
@@ -188,9 +210,19 @@ exports.webhook = async (req, res) => {
 exports.transactions = async (req, res) => {
   try {
     const userId = req.params.userId || req.user.id;
+    console.log("📊 Transactions request:", { 
+      userId, 
+      paramsUserId: req.params.userId, 
+      userFromToken: req.user.id,
+      userType: req.user.type 
+    });
+    
     const rows = await Transaction.find({ userId: String(userId) });
+    console.log("📊 Found transactions:", { count: rows.length, userId: String(userId) });
+    
     return res.json(rows);
   } catch (e) {
+    console.error("❌ Transactions error:", e);
     return res.status(500).json({ message: e.message });
   }
 };
@@ -218,6 +250,23 @@ exports.adminTransactions = async (req, res) => {
 exports.withdraw = async (req, res) => {
   try {
     return res.status(501).json({ message: "Withdraw not implemented in this environment" });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+// Debug endpoint to see in-memory storage
+exports.debug = async (req, res) => {
+  try {
+    const wallets = Array.from(memory.wallets.entries()).map(([key, wallet]) => ({ key, ...wallet }));
+    const transactions = Array.from(memory.txs.entries()).map(([id, tx]) => ({ id, ...tx }));
+    
+    return res.json({
+      wallets,
+      transactions,
+      walletCount: memory.wallets.size,
+      transactionCount: memory.txs.size
+    });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
