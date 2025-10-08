@@ -1,6 +1,6 @@
 const { Subscription, Trip, TripSchedule } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
-const { getUserInfo } = require("../utils/tokenHelper");
+const jwt = require('jsonwebtoken');
 const { Op } = require("sequelize");
 
 // GET /driver/:id/passengers - Get driver's subscribed passengers with contract expiration and payment status
@@ -25,17 +25,68 @@ exports.getDriverPassengers = asyncHandler(async (req, res) => {
       order: [['end_date', 'ASC']],
     });
 
+    // Decode JWT once and prepare token-only passenger lookup (no external fallback)
+    let decodedAll = null;
+    try {
+      const authz = req.headers && req.headers.authorization ? req.headers.authorization : null;
+      if (authz) {
+        const clean = authz.startsWith('Bearer ') ? authz.slice(7) : authz;
+        decodedAll = jwt.verify(clean, process.env.JWT_SECRET || 'secret');
+      }
+    } catch (_) {}
+
+    function findPassengerInToken(passengerId) {
+      const candidates = [];
+      if (decodedAll) {
+        candidates.push(
+          decodedAll.passengers,
+          decodedAll.assignedPassengers,
+          decodedAll.users,
+          decodedAll.userList,
+          decodedAll.data,
+          decodedAll.payload,
+          decodedAll.context,
+          decodedAll.user && decodedAll.user.passengers,
+          decodedAll.user && decodedAll.user.users,
+          decodedAll.user && decodedAll.user.data
+        );
+      }
+
+      const isMatch = (u) => {
+        if (!u) return false;
+        const id = u.id || u._id || (u.user && (u.user.id || u.user._id));
+        return id != null && String(id) === String(passengerId);
+      };
+
+      for (const cont of candidates) {
+        if (!cont) continue;
+        if (Array.isArray(cont)) {
+          const found = cont.find(isMatch);
+          if (found) return found;
+        } else if (typeof cont === 'object') {
+          if (cont[String(passengerId)]) return cont[String(passengerId)];
+          const found = Object.values(cont).find(isMatch);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
     // Enrich with passenger information and expiration details
     const enrichedPassengers = await Promise.all(
       subscriptions.map(async (subscription) => {
-        // Use token-derived info only, as requested; fallback to stored fields
-        let tokenPassenger = null;
-        try { tokenPassenger = await getUserInfo(req, subscription.passenger_id, 'passenger'); } catch (_) {}
-
         const subData = subscription.toJSON();
-        const name = (tokenPassenger && tokenPassenger.name) || subData.passenger_name || `Passenger ${String(subscription.passenger_id).slice(-4)}`;
-        const phone = (tokenPassenger && tokenPassenger.phone) || subData.passenger_phone || 'Not available';
-        const email = (tokenPassenger && tokenPassenger.email) || subData.passenger_email || 'Not available';
+        const passengerFromToken = findPassengerInToken(subscription.passenger_id);
+
+        const name = passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName) 
+          || subData.passenger_name 
+          || `Passenger ${String(subscription.passenger_id).slice(-4)}`;
+        const phone = passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn)
+          || subData.passenger_phone 
+          || 'Not available';
+        const email = passengerFromToken && (passengerFromToken.email)
+          || subData.passenger_email 
+          || 'Not available';
 
         const endDate = new Date(subscription.end_date);
         const today = new Date();
