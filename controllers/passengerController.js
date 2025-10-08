@@ -51,19 +51,44 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
     const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
     let tokenHelperInfo = null;
     let fetched = null;
-    try { tokenHelperInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
     try { fetched = await getDriverById(driverId, authHeader); } catch (_) {}
+    try { tokenHelperInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
 
     const subData = subscription.toJSON();
-    const name = (tokenHelperInfo && tokenHelperInfo.name) || (fetched && fetched.name) || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
-    const phone = (tokenHelperInfo && tokenHelperInfo.phone) || (fetched && fetched.phone) || subData.driver_phone || 'Not available';
-    const email = (tokenHelperInfo && tokenHelperInfo.email) || (fetched && fetched.email) || subData.driver_email || 'Not available';
 
-    // Derive vehicle details in both admin-like top-level fields and snake_case vehicle_info
-    const vehicleType = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.vehicleType) || (fetched && fetched.vehicleType) || null;
-    const carModel = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carModel) || (fetched && fetched.carModel) || null;
-    const carPlate = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carPlate) || (fetched && fetched.carPlate) || null;
-    const carColor = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carColor) || (fetched && fetched.carColor) || null;
+    const isValid = (v) => v != null && v !== 'Not available' && String(v).trim() !== '';
+    const isValidName = (v) => {
+      if (!isValid(v)) return false;
+      const lower = String(v).toLowerCase();
+      return !(lower.startsWith('driver ') || lower.startsWith('passenger '));
+    };
+
+    const name = (fetched && isValidName(fetched.name) && fetched.name)
+      || (tokenHelperInfo && isValidName(tokenHelperInfo.name) && tokenHelperInfo.name)
+      || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
+    const phone = (fetched && isValid(fetched.phone) && fetched.phone)
+      || (tokenHelperInfo && isValid(tokenHelperInfo.phone) && tokenHelperInfo.phone)
+      || subData.driver_phone || 'Not available';
+    const email = (fetched && isValid(fetched.email) && fetched.email)
+      || (tokenHelperInfo && isValid(tokenHelperInfo.email) && tokenHelperInfo.email)
+      || subData.driver_email || 'Not available';
+
+    // Derive vehicle details (prefer external, then token, then stored on subscription)
+    const vehicleType = (fetched && fetched.vehicleType) 
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.vehicleType) 
+      || null;
+    const carModel = (fetched && fetched.carModel)
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carModel)
+      || (subData.vehicle_info && subData.vehicle_info.car_model)
+      || null;
+    const carPlate = (fetched && fetched.carPlate)
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carPlate)
+      || (subData.vehicle_info && subData.vehicle_info.car_plate)
+      || null;
+    const carColor = (fetched && fetched.carColor)
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carColor)
+      || (subData.vehicle_info && subData.vehicle_info.car_color)
+      || null;
 
     const assignedDriver = {
       id: String(driverId),
