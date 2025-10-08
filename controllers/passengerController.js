@@ -1,52 +1,7 @@
 const { Trip, Subscription, Contract, RideSchedule } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
+const { getDriverById } = require("../utils/userService");
 const { getUserInfo } = require("../utils/tokenHelper");
-const jwt = require('jsonwebtoken');
-
-function decodeToken(req) {
-  try {
-    const authz = req.headers && req.headers.authorization ? req.headers.authorization : null;
-    if (!authz) return null;
-    const clean = authz.startsWith('Bearer ') ? authz.slice(7) : authz;
-    return jwt.verify(clean, process.env.JWT_SECRET || 'secret');
-  } catch (_) { return null; }
-}
-
-function findDriverInDecoded(decoded, driverId) {
-  if (!decoded) return null;
-  const candidates = [
-    decoded.drivers,
-    decoded.driver,
-    decoded.assignedDrivers,
-    decoded.assignedDriver,
-    decoded.users,
-    decoded.userList,
-    decoded.data,
-    decoded.payload,
-    decoded.context,
-    decoded.user && decoded.user.drivers,
-    decoded.user && decoded.user.driver,
-    decoded.user && decoded.user.users,
-    decoded.user && decoded.user.data
-  ];
-  const isMatch = (u) => {
-    if (!u) return false;
-    const id = u.id || u._id || (u.user && (u.user.id || u.user.__id));
-    return id != null && String(id) === String(driverId);
-  };
-  for (const cont of candidates) {
-    if (!cont) continue;
-    if (Array.isArray(cont)) {
-      const found = cont.find(isMatch);
-      if (found) return found;
-    } else if (typeof cont === 'object') {
-      if (cont[String(driverId)]) return cont[String(driverId)];
-      const found = Object.values(cont).find(isMatch);
-      if (found) return found;
-    }
-  }
-  return null;
-}
 const { calculateFareFromCoordinates } = require("../utils/pricingService");
 
 // GET /passenger/:id/driver - Get assigned driver for latest subscription (ACTIVE first, else most recent)
@@ -92,23 +47,66 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
   }
 
   try {
-    const decoded = decodeToken(req);
-    const dTok = findDriverInDecoded(decoded, driverId);
-    let dInfo = null;
-    try { dInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
+    // Prioritize token-derived info (as requested), then external service, then stored fields
+    const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+    let tokenHelperInfo = null;
+    let fetched = null;
+    try { fetched = await getDriverById(driverId, authHeader); } catch (_) {}
+    try { tokenHelperInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
 
     const subData = subscription.toJSON();
-    const name = (dTok && (dTok.name || dTok.fullName)) || dInfo?.name || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
-    const phone = (dTok && (dTok.phone || dTok.msisdn)) || dInfo?.phone || subData.driver_phone || 'Not available';
-    const email = (dTok && dTok.email) || dInfo?.email || subData.driver_email || 'Not available';
 
-    const v = (dTok && (dTok.vehicle_info || { carModel: dTok.carModel, carPlate: dTok.carPlate, carColor: dTok.carColor, vehicleType: dTok.vehicleType })) || dInfo?.vehicle_info || {};
-    const vehFromSub = subData.vehicle_info || {};
-    const vehicle_info = {
-      carModel: v?.carModel || v?.vehicleType || vehFromSub?.car_model || 'Not available',
-      carPlate: v?.carPlate || vehFromSub?.car_plate || 'Not available',
-      carColor: v?.carColor || vehFromSub?.car_color || 'Not available'
+    const isValid = (v) => v != null && v !== 'Not available' && String(v).trim() !== '';
+    const isValidName = (v) => {
+      if (!isValid(v)) return false;
+      const lower = String(v).toLowerCase();
+      return !(lower.startsWith('driver ') || lower.startsWith('passenger '));
     };
+
+    const name = (fetched && isValidName(fetched.name) && fetched.name)
+      || (tokenHelperInfo && isValidName(tokenHelperInfo.name) && tokenHelperInfo.name)
+      || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
+    const phone = (fetched && isValid(fetched.phone) && fetched.phone)
+      || (tokenHelperInfo && isValid(tokenHelperInfo.phone) && tokenHelperInfo.phone)
+      || subData.driver_phone || 'Not available';
+    const email = (fetched && isValid(fetched.email) && fetched.email)
+      || (tokenHelperInfo && isValid(tokenHelperInfo.email) && tokenHelperInfo.email)
+      || subData.driver_email || 'Not available';
+
+    // Derive vehicle details (prefer external, then token, then stored on subscription)
+    const vehicleType = (fetched && fetched.vehicleType) 
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.vehicleType) 
+      || null;
+    const carModel = (fetched && fetched.carModel)
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carModel)
+      || (subData.vehicle_info && subData.vehicle_info.car_model)
+      || null;
+    const carPlate = (fetched && fetched.carPlate)
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carPlate)
+      || (subData.vehicle_info && subData.vehicle_info.car_plate)
+      || null;
+    const carColor = (fetched && fetched.carColor)
+      || (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carColor)
+      || (subData.vehicle_info && subData.vehicle_info.car_color)
+      || null;
+
+    // Build assigned driver and omit null/undefined fields
+    const assignedDriverRaw = {
+      id: String(driverId),
+      name,
+      phone,
+      email,
+      vehicleType,
+      carModel,
+      carPlate,
+      carColor,
+      rating: (fetched && fetched.rating) != null ? fetched.rating : null,
+      available: (fetched && fetched.available) != null ? !!fetched.available : null,
+      lastKnownLocation: fetched && fetched.lastKnownLocation ? fetched.lastKnownLocation : null,
+      paymentPreference: fetched && fetched.paymentPreference ? fetched.paymentPreference : null,
+      type: "driver"
+    };
+    const assignedDriver = Object.fromEntries(Object.entries(assignedDriverRaw).filter(([_, v]) => v !== null && v !== undefined));
 
     return res.json({
       success: true,
@@ -120,14 +118,7 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
           start_date: subscription.start_date,
           end_date: subscription.end_date,
         },
-        assigned_driver: {
-          id: String(driverId),
-          name,
-          phone,
-          email,
-          vehicle_info,
-          type: "driver"
-        },
+        assigned_driver: assignedDriver,
       }
     });
   } catch (error) {
