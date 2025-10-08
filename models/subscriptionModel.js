@@ -12,7 +12,13 @@ const Subscription = sequelize.define(
     },
     contract_id: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true, // Allow null when using contract types directly
+      references: {
+        model: 'contracts',
+        key: 'id'
+      },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE'
     },
     passenger_id: {
       type: DataTypes.UUID,
@@ -74,9 +80,15 @@ const Subscription = sequelize.define(
       type: DataTypes.DECIMAL(11, 8),
       allowNull: true,
     },
-    contract_type: {
-      type: DataTypes.ENUM("INDIVIDUAL", "GROUP", "INSTITUTIONAL"),
+    contract_type_id: {
+      type: DataTypes.UUID,
       allowNull: false,
+      references: {
+        model: 'contract_types',
+        key: 'id'
+      },
+      onDelete: 'RESTRICT',
+      onUpdate: 'CASCADE'
     },
     start_date: {
       type: DataTypes.DATEONLY,

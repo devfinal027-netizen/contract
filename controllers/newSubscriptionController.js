@@ -1,9 +1,26 @@
-const { Subscription, Contract, ContractSettings } = require("../models/indexModel");
+const { Subscription, Contract, ContractSettings, ContractType } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
 const { getPassengerById, getDriverById } = require("../utils/userService");
 const { calculateSubscriptionFare, getAvailableContracts } = require("../services/subscriptionService");
 const { createPaymentForSubscription } = require("./paymentController");
 const { getUserInfo, populateUserFields } = require("../utils/tokenHelper");
+
+// Helper function to get contract type ID from contract
+function getContractTypeId(contract) {
+  // If it's a virtual contract from ContractType, use the contract's ID
+  if (contract.contract_type_id) {
+    return contract.contract_type_id;
+  }
+  // If it's a ContractType object, use its ID
+  if (contract.contractType && contract.contractType.id) {
+    return contract.contractType.id;
+  }
+  // If it's the contract ID itself (when using contract type ID as contract_id)
+  if (contract.id) {
+    return contract.id;
+  }
+  return null;
+}
 
 // POST /subscription/create - Create subscription with fare estimation
 exports.createSubscription = asyncHandler(async (req, res) => {
@@ -35,15 +52,28 @@ exports.createSubscription = asyncHandler(async (req, res) => {
   }
 
   // Validate contract exists and is active
-  const contract = await Contract.findOne({
+  let contract = await Contract.findOne({
     where: { id: contract_id, status: 'ACTIVE' }
   });
 
+  // If no contract found, check if it's a contract type ID
   if (!contract) {
-    return res.status(404).json({
-      success: false,
-      message: "Contract not found or not active"
-    });
+    const contractType = await ContractType.findByPk(contract_id);
+    if (contractType && contractType.is_active) {
+      // Create a virtual contract from contract type
+      contract = {
+        id: contractType.id,
+        contract_type_id: contractType.id,
+        cost: contractType.base_price_per_km,
+        status: 'ACTIVE',
+        contractType: contractType
+      };
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found or not active"
+      });
+    }
   }
 
   // Get passenger ID from authenticated user
@@ -54,6 +84,9 @@ exports.createSubscription = asyncHandler(async (req, res) => {
     const passengerInfo = await getUserInfo(req, passengerId, 'passenger');
 
     // Calculate fare estimation
+    // Pass the contract type object or contract type string
+    const contractTypeForFare = contract.contractType || contract.contract_type || contract;
+    
     const fareResult = await calculateSubscriptionFare(
       pickup_location,
       dropoff_location,
@@ -61,16 +94,19 @@ exports.createSubscription = asyncHandler(async (req, res) => {
       pickup_longitude,
       dropoff_latitude,
       dropoff_longitude,
-      contract.contract_type
+      contractTypeForFare
     );
 
     if (!fareResult.success) {
       return res.status(400).json(fareResult);
     }
 
+    // Determine if we're using a contract type directly or an actual contract
+    const isUsingContractTypeDirectly = contract.id === contract_id && contract.contract_type_id === contract_id;
+    
     // Create subscription with PENDING status and passenger info
     const subscriptionData = {
-      contract_id: contract_id,
+      contract_id: isUsingContractTypeDirectly ? null : contract_id, // Set to null if using contract type directly
       passenger_id: passengerId,
       passenger_name: passengerInfo?.name || null,
       passenger_phone: passengerInfo?.phone || null,
@@ -81,7 +117,7 @@ exports.createSubscription = asyncHandler(async (req, res) => {
       pickup_longitude: pickup_longitude || null,
       dropoff_latitude: dropoff_latitude || null,
       dropoff_longitude: dropoff_longitude || null,
-      contract_type: contract.contract_type,
+      contract_type_id: getContractTypeId(contract),
       start_date,
       end_date,
       fare: fareResult.data.base_fare,
@@ -119,7 +155,44 @@ exports.createSubscription = asyncHandler(async (req, res) => {
 // POST /subscription/:id/payment - Process payment for subscription
 exports.processPayment = asyncHandler(async (req, res) => {
   const subscriptionId = req.params.id;
-  const { payment_method, transaction_reference, amount } = req.body;
+  
+  // Debug logging
+  console.log("Payment request received:", {
+    subscriptionId,
+    contentType: req.headers['content-type'],
+    body: req.body,
+    method: req.method
+  });
+  
+  // Check if request body exists (handle both JSON and multipart/form-data)
+  if (!req.body || Object.keys(req.body).length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Request body is required. Please include payment data.",
+      debug: {
+        contentType: req.headers['content-type'],
+        method: req.method,
+        hasBody: !!req.body,
+        bodyKeys: req.body ? Object.keys(req.body) : []
+      }
+    });
+  }
+  
+  const { 
+    payment_method, 
+    transaction_reference, 
+    amount, 
+    due_date, 
+    receipt_image, 
+    status = "PENDING",
+    subscription_id 
+  } = req.body;
+
+  // Handle receipt image from form data or file upload
+  let receiptImagePath = receipt_image;
+  if (req.file) {
+    receiptImagePath = `uploads/payments/${req.file.filename}`;
+  }
 
   if (!payment_method) {
     return res.status(400).json({
@@ -128,22 +201,64 @@ exports.processPayment = asyncHandler(async (req, res) => {
     });
   }
 
+  // Debug logging
+  console.log("Looking for subscription:", {
+    subscriptionId,
+    userId: req.user?.id,
+    userIdType: typeof req.user?.id,
+    userType: req.user?.type
+  });
+
+  // First, let's check if any subscription exists with this ID
+  const allSubscriptions = await Subscription.findAll({
+    where: { id: subscriptionId }
+  });
+  console.log("Direct query result:", {
+    count: allSubscriptions.length,
+    subscriptions: allSubscriptions.map(s => ({ id: s.id, passenger_id: s.passenger_id }))
+  });
+
   const subscription = await Subscription.findByPk(subscriptionId, {
     include: [{ model: Contract, as: "contract" }]
+  });
+  
+  console.log("Found subscription:", {
+    found: !!subscription,
+    subscriptionId: subscription?.id,
+    passengerId: subscription?.passenger_id,
+    passengerIdType: typeof subscription?.passenger_id,
+    status: subscription?.status,
+    paymentStatus: subscription?.payment_status
   });
   
   if (!subscription) {
     return res.status(404).json({
       success: false,
-      message: "Subscription not found"
+      message: "Subscription not found",
+      debug: {
+        searchedId: subscriptionId,
+        userId: req.user?.id
+      }
     });
   }
 
   // Check if user can access this subscription
-  if (req.user.type === "passenger" && subscription.passenger_id !== req.user.id) {
+  // Convert both IDs to strings for comparison to handle type mismatches
+  const subscriptionPassengerId = String(subscription.passenger_id);
+  const requestUserId = String(req.user.id);
+  
+  if (req.user.type === "passenger" && subscriptionPassengerId !== requestUserId) {
     return res.status(403).json({
       success: false,
-      message: "Access denied"
+      message: "Access denied",
+      debug: {
+        subscriptionPassengerId: subscription.passenger_id,
+        requestUserId: req.user.id,
+        userType: req.user.type,
+        subscriptionPassengerIdStr: subscriptionPassengerId,
+        requestUserIdStr: requestUserId,
+        typesMatch: subscriptionPassengerId === requestUserId
+      }
     });
   }
 
@@ -161,46 +276,121 @@ exports.processPayment = asyncHandler(async (req, res) => {
       amount: amount || subscription.final_fare,
       payment_method,
       transaction_reference,
-      due_date: new Date()
+      due_date: due_date ? new Date(due_date) : new Date(),
+      status: status,
+      receipt_image: receiptImagePath
     };
 
+    console.log("Creating payment with data:", {
+      subscriptionId,
+      paymentData,
+      hasFile: !!req.file,
+      subscriptionFinalFare: subscription.final_fare
+    });
+
     const payment = await createPaymentForSubscription(subscriptionId, paymentData, req.file);
+    
+    console.log("Received payment from createPaymentForSubscription:", {
+      paymentType: typeof payment,
+      isNull: payment === null,
+      isUndefined: payment === undefined,
+      hasId: !!payment?.id,
+      paymentId: payment?.id,
+      paymentAmount: payment?.amount,
+      paymentMethod: payment?.payment_method,
+      paymentKeys: payment ? Object.keys(payment) : 'no keys'
+    });
 
-    // Get passenger details for response
-    const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-    let passengerInfo = null;
-    try {
-      passengerInfo = await getPassengerById(subscription.passenger_id, authHeader);
-    } catch (_) {}
-
+    // Return the expected response format
     res.json({
       success: true,
-      message: "Payment submitted for admin approval",
       data: {
-        subscription: {
-          ...subscription.toJSON(),
-          passenger_name: passengerInfo?.name || null,
-          passenger_phone: passengerInfo?.phone || null,
-          passenger_email: passengerInfo?.email || null,
-        },
-        payment: {
-          id: payment.id,
-          amount: payment.amount,
-          method: payment.payment_method,
-          transaction_reference: payment.transaction_reference,
-          status: "PENDING",
-          admin_approved: false,
-          submitted_at: payment.createdAt
-        }
+        id: payment.id,
+        contract_id: payment.contract_id,
+        passenger_id: payment.passenger_id,
+        payment_method: payment.payment_method,
+        due_date: payment.due_date,
+        transaction_reference: payment.transaction_reference,
+        status: payment.status,
+        receipt_image: payment.receipt_image,
+        createdAt: payment.createdAt
       }
     });
   } catch (error) {
+    console.error("Error in processPayment:", {
+      error: error.message,
+      stack: error.stack,
+      subscriptionId,
+      paymentData: {
+        payment_method,
+        amount,
+        transaction_reference
+      }
+    });
+    
     return res.status(500).json({
       success: false,
       message: "Error processing payment",
-      error: error.message
+      error: error.message,
+      debug: {
+        subscriptionId,
+        errorType: error.name,
+        errorCode: error.code
+      }
     });
   }
+});
+
+// GET /subscriptions/pending - Get all pending subscriptions (Admin only)
+exports.getPendingSubscriptions = asyncHandler(async (req, res) => {
+  // Check if user is admin
+  if (req.user.type !== "admin" && req.user.type !== "superadmin") {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Admin privileges required."
+    });
+  }
+
+  const pendingSubscriptions = await Subscription.findAll({
+    where: {
+      status: "PENDING"
+    },
+    include: [
+      { model: Contract, as: "contract" },
+      { model: ContractType, as: "contractType" }
+    ],
+    order: [['createdAt', 'ASC']]
+  });
+
+  // Enrich with passenger info
+  const uniquePassengerIds = [...new Set(pendingSubscriptions.map(s => s.passenger_id).filter(Boolean))];
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+  const passengerInfoMap = new Map();
+  
+  await Promise.all(uniquePassengerIds.map(async (pid) => {
+    try {
+      const info = await getPassengerById(pid, authHeader);
+      if (info) passengerInfoMap.set(pid, info);
+    } catch (_) {}
+  }));
+
+  const enriched = pendingSubscriptions.map(subscription => {
+    const info = passengerInfoMap.get(subscription.passenger_id);
+    return {
+      ...subscription.toJSON(),
+      passenger_name: info?.name || null,
+      passenger_phone: info?.phone || null,
+      passenger_email: info?.email || null,
+    };
+  });
+
+  res.json({
+    success: true,
+    data: {
+      pending_subscriptions: enriched,
+      total_count: enriched.length
+    }
+  });
 });
 
 // GET /passenger/:id/subscriptions - Get passenger's subscriptions (active and history)

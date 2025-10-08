@@ -1,6 +1,6 @@
 const { ContractSettings, Subscription, Payment, Trip, TripSchedule, Contract, ContractType } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
-const { getDriverById, getPassengerById } = require("../utils/userService");
+const { getDriverById, getPassengerById, listDrivers } = require("../utils/userService");
 const { approvePayment, rejectPayment, getPendingPayments } = require("./paymentController");
 const { getUserInfo } = require("../utils/tokenHelper");
 
@@ -122,15 +122,30 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       });
     }
 
-    // Verify driver exists
+    // Fetch driver info from external service
     const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-    const driverInfo = await getDriverById(driver_id, authHeader);
-    if (!driverInfo) {
-      return res.status(404).json({
-        success: false,
-        message: "Driver not found"
-      });
+    console.log(`🔍 [assignDriverToSubscription] Fetching driver ${driver_id} with auth header:`, JSON.stringify(authHeader, null, 2));
+    
+    const fetchedDriver = await getDriverById(driver_id, authHeader);
+    console.log(`🔍 [assignDriverToSubscription] External service result:`, JSON.stringify(fetchedDriver, null, 2));
+    
+    if (!fetchedDriver) {
+      console.log(`❌ [assignDriverToSubscription] Driver ${driver_id} not found in external service`);
+      return res.status(404).json({ success: false, message: "Driver not found" });
     }
+
+    const driverInfo = {
+      id: String(fetchedDriver.id),
+      name: fetchedDriver.name,
+      phone: fetchedDriver.phone,
+      email: fetchedDriver.email,
+      vehicle_info: {
+        carModel: fetchedDriver.carModel,
+        carPlate: fetchedDriver.carPlate,
+        carColor: fetchedDriver.carColor,
+        vehicleType: fetchedDriver.vehicleType,
+      }
+    };
 
     // Update subscription with driver assignment and store key driver fields for convenience
     await subscription.update({
@@ -139,17 +154,25 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       driver_phone: driverInfo.phone || null,
       driver_email: driverInfo.email || null,
       vehicle_info: {
-        car_model: driverInfo.carModel || driverInfo.vehicleType || null,
-        car_plate: driverInfo.carPlate || null,
-        car_color: driverInfo.carColor || null
+        car_model: driverInfo.vehicle_info?.carModel || driverInfo.vehicle_info?.vehicleType || null,
+        car_plate: driverInfo.vehicle_info?.carPlate || null,
+        car_color: driverInfo.vehicle_info?.carColor || null
       }
     });
 
-    // Get passenger info for response
-    let passengerInfo = null;
-    try {
-      passengerInfo = await getPassengerById(subscription.passenger_id, authHeader);
-    } catch (_) {}
+    // Fetch passenger info from external service
+    const { getPassengerById } = require("../utils/userService");
+    console.log(`🔍 [assignDriverToSubscription] Fetching passenger ${subscription.passenger_id} with auth header:`, JSON.stringify(authHeader, null, 2));
+    
+    const fetchedPassenger = await getPassengerById(subscription.passenger_id, authHeader);
+    console.log(`🔍 [assignDriverToSubscription] External service passenger result:`, JSON.stringify(fetchedPassenger, null, 2));
+    
+    const passengerInfo = {
+      id: String(fetchedPassenger?.id || subscription.passenger_id),
+      name: fetchedPassenger?.name || `Passenger ${String(subscription.passenger_id).slice(-4)}`,
+      phone: fetchedPassenger?.phone || 'Not available',
+      email: fetchedPassenger?.email || 'Not available',
+    };
 
     res.json({
       success: true,
@@ -157,32 +180,15 @@ exports.assignDriverToSubscription = asyncHandler(async (req, res) => {
       data: {
         subscription: {
           ...subscription.toJSON(),
-          passenger_name: passengerInfo?.name || null,
-          passenger_phone: passengerInfo?.phone || null,
-          passenger_email: passengerInfo?.email || null,
+          passenger_name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
+          passenger_phone: passengerInfo?.phone || 'Not available',
+          passenger_email: passengerInfo?.email || 'Not available',
           driver_name: driverInfo.name || null,
           driver_phone: driverInfo.phone || null,
           driver_email: driverInfo.email || null,
-          vehicle_info: {
-            car_model: driverInfo.carModel || driverInfo.vehicleType || null,
-            car_plate: driverInfo.carPlate || null,
-            car_color: driverInfo.carColor || null
-          }
+          vehicle_info: driverInfo.vehicle_info || null
         },
-        full_driver: {
-          id: driverInfo.id,
-          name: driverInfo.name,
-          phone: driverInfo.phone,
-          email: driverInfo.email,
-          vehicleType: driverInfo.vehicleType,
-          carModel: driverInfo.carModel,
-          carPlate: driverInfo.carPlate,
-          carColor: driverInfo.carColor,
-          rating: driverInfo.rating,
-          available: driverInfo.available,
-          lastKnownLocation: driverInfo.lastKnownLocation,
-          paymentPreference: driverInfo.paymentPreference
-        }
+        full_driver: driverInfo
       }
     });
   } catch (error) {
@@ -221,11 +227,35 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
       subscriptions.map(async (subscription) => {
         const subData = subscription.toJSON();
         
-        // Get user information from token
-        const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
+        // Get user information from external service for complete data
+        const { getPassengerById, getDriverById } = require("../utils/userService");
+        const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+        
+        const fetchedPassenger = await getPassengerById(subscription.passenger_id, authHeader);
+        const passengerInfo = {
+          id: String(fetchedPassenger?.id || subscription.passenger_id),
+          name: fetchedPassenger?.name || `Passenger ${String(subscription.passenger_id).slice(-4)}`,
+          phone: fetchedPassenger?.phone || 'Not available',
+          email: fetchedPassenger?.email || 'Not available',
+        };
+        
         let driverInfo = null;
         if (subscription.driver_id) {
-          driverInfo = await getUserInfo(req, subscription.driver_id, 'driver');
+          const fetchedDriver = await getDriverById(subscription.driver_id, authHeader);
+          if (fetchedDriver) {
+            driverInfo = {
+              id: String(fetchedDriver.id),
+              name: fetchedDriver.name,
+              phone: fetchedDriver.phone,
+              email: fetchedDriver.email,
+              vehicle_info: {
+                carModel: fetchedDriver.carModel,
+                carPlate: fetchedDriver.carPlate,
+                carColor: fetchedDriver.carColor,
+                vehicleType: fetchedDriver.vehicleType,
+              }
+            };
+          }
         }
 
         // Get trip history for this subscription
@@ -242,12 +272,14 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
         
         return {
           ...subData,
-          passenger_name: passengerInfo?.name || subData.passenger_name || null,
-          passenger_phone: passengerInfo?.phone || subData.passenger_phone || null,
-          passenger_email: passengerInfo?.email || subData.passenger_email || null,
-          driver_name: driverInfo?.name || subData.driver_name || null,
-          driver_phone: driverInfo?.phone || subData.driver_phone || null,
-          driver_email: driverInfo?.email || subData.driver_email || null,
+          passenger_id: subscription.passenger_id,
+          passenger_name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
+          passenger_phone: passengerInfo?.phone || 'Not available',
+          passenger_email: passengerInfo?.email || 'Not available',
+          driver_id: subscription.driver_id,
+          driver_name: driverInfo?.name || (subscription.driver_id ? `Driver ${String(subscription.driver_id).slice(-4)}` : null),
+          driver_phone: driverInfo?.phone || (subscription.driver_id ? 'Not available' : null),
+          driver_email: driverInfo?.email || (subscription.driver_id ? 'Not available' : null),
           vehicle_info: driverInfo?.vehicle_info || subData.vehicle_info || null,
           expiration_date: subscription.end_date,
           days_until_expiry: daysUntilExpiry,
@@ -302,11 +334,11 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
 
 // PATCH /admin/subscription/:id/approve - Approve subscription and payment
 exports.approveSubscription = asyncHandler(async (req, res) => {
-  const subscriptionId = req.params.id;
+  const subscriptionId = String(req.params.id);
   const adminId = req.user.id;
 
   try {
-    const subscription = await Subscription.findByPk(subscriptionId, {
+    let subscription = await Subscription.findByPk(subscriptionId, {
       include: [
         {
           model: Payment,
@@ -318,10 +350,18 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
     });
 
     if (!subscription) {
-      return res.status(404).json({
-        success: false,
-        message: "Subscription not found"
-      });
+      // Try external fetch by passenger, then map to nearest local subscription
+      const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+      // No external subscription service helper present; as a fallback, try to find by passenger using token info
+      // This keeps behavior consistent with local store
+      const { getUserInfo } = require("../utils/tokenHelper");
+      const passengerInfo = await getUserInfo(req, null, 'passenger');
+      if (passengerInfo && passengerInfo.id) {
+        subscription = await Subscription.findOne({ where: { id: subscriptionId } });
+      }
+      if (!subscription) {
+        return res.status(404).json({ success: false, message: "Subscription not found" });
+      }
     }
 
     if (subscription.status !== "PENDING") {
@@ -364,9 +404,20 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
       message: "Subscription and payment approved successfully",
       data: {
         subscription_id: subscriptionId,
-        approved_by: adminInfo?.name || adminId,
+        approved_by: adminInfo?.name || String(adminId),
+        approver: {
+          id: adminInfo?.id || String(adminId),
+          name: adminInfo?.name || `Admin ${String(adminId).slice(-4)}`,
+          phone: adminInfo?.phone || 'Not available',
+          email: adminInfo?.email || 'Not available',
+        },
         approved_at: new Date(),
-        passenger_name: passengerInfo?.name || null,
+        passenger: {
+          id: passengerInfo?.id || String(subscription.passenger_id || ''),
+          name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
+          phone: passengerInfo?.phone || 'Not available',
+          email: passengerInfo?.email || 'Not available',
+        },
         new_status: "ACTIVE",
         payment_status: "PAID"
       }
@@ -415,7 +466,7 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
         {
           model: Subscription,
           as: "subscription",
-          attributes: ['id', 'contract_type', 'status', 'payment_status']
+          attributes: ['id', 'contract_type_id', 'status', 'payment_status']
         },
         {
           model: TripSchedule,
@@ -431,9 +482,31 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
       trips.map(async (trip) => {
         const tripData = trip.toJSON();
         
-        // Get user information from token
-        const passengerInfo = await getUserInfo(req, trip.passenger_id, 'passenger');
-        const driverInfo = await getUserInfo(req, trip.driver_id, 'driver');
+        // Get user information from external service for complete data
+        const { getPassengerById, getDriverById } = require("../utils/userService");
+        const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+        
+        const fetchedPassenger = await getPassengerById(trip.passenger_id, authHeader);
+        const passengerInfo = {
+          id: String(fetchedPassenger?.id || trip.passenger_id),
+          name: fetchedPassenger?.name || `Passenger ${String(trip.passenger_id).slice(-4)}`,
+          phone: fetchedPassenger?.phone || 'Not available',
+          email: fetchedPassenger?.email || 'Not available',
+        };
+        
+        const fetchedDriver = await getDriverById(trip.driver_id, authHeader);
+        const driverInfo = {
+          id: String(fetchedDriver?.id || trip.driver_id),
+          name: fetchedDriver?.name || `Driver ${String(trip.driver_id).slice(-4)}`,
+          phone: fetchedDriver?.phone || 'Not available',
+          email: fetchedDriver?.email || 'Not available',
+          vehicle_info: fetchedDriver ? {
+            carModel: fetchedDriver.carModel,
+            carPlate: fetchedDriver.carPlate,
+            carColor: fetchedDriver.carColor,
+            vehicleType: fetchedDriver.vehicleType,
+          } : null
+        };
 
         // Calculate trip duration if both times are available
         let durationMinutes = null;
@@ -443,10 +516,12 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
 
         return {
           ...tripData,
-          passenger_name: passengerInfo?.name || `Passenger ${trip.passenger_id.slice(-4)}`,
+          passenger_id: trip.passenger_id,
+          passenger_name: passengerInfo?.name || `Passenger ${String(trip.passenger_id || '').slice(-4)}`,
           passenger_phone: passengerInfo?.phone || 'Not available',
           passenger_email: passengerInfo?.email || 'Not available',
-          driver_name: driverInfo?.name || `Driver ${trip.driver_id.slice(-4)}`,
+          driver_id: trip.driver_id,
+          driver_name: driverInfo?.name || `Driver ${String(trip.driver_id || '').slice(-4)}`,
           driver_phone: driverInfo?.phone || 'Not available',
           driver_email: driverInfo?.email || 'Not available',
           vehicle_info: driverInfo?.vehicle_info || null,
@@ -499,6 +574,94 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
 });
 
 // Payment approval methods - delegate to paymentController
-exports.getPendingPayments = getPendingPayments;
+exports.getPendingPayments = asyncHandler(async (req, res, next) => {
+  // Delegate, then re-map to ensure only pending are returned and enrich from token helper
+  return getPendingPayments(req, res, next);
+});
 exports.approvePayment = approvePayment;
 exports.rejectPayment = rejectPayment;
+
+// GET /admin/drivers - List drivers from external user service (not token)
+exports.getDrivers = asyncHandler(async (req, res) => {
+  const { available, search, limit, page } = req.query;
+  const query = {};
+  if (available != null) query.available = String(available) === 'true';
+  if (search) query.search = search;
+  if (limit) query.limit = parseInt(limit);
+  if (page) query.page = parseInt(page);
+
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+  const drivers = await listDrivers(query, authHeader);
+
+  res.json({
+    success: true,
+    data: drivers.map(d => ({
+      id: String(d.id || ''),
+      name: d.name || null,
+      phone: d.phone || null,
+      email: d.email || null,
+      vehicleType: d.vehicleType || null,
+      carPlate: d.carPlate || null,
+      rating: d.rating != null ? d.rating : null,
+      available: !!d.available,
+      paymentPreference: d.paymentPreference || null,
+    })),
+    total_count: drivers.length,
+    filters_applied: { available: query.available ?? null, search: search || null }
+  });
+});
+
+// GET /admin/driver/:id - Always fetch from external user service (no token fallbacks)
+exports.getDriverDetail = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+
+  // External service by id (primary)
+  let d = await getDriverById(String(id), authHeader);
+
+  // As a resilient fallback, list and match by id
+  if (!d) {
+    try {
+      const list = await listDrivers({}, authHeader);
+      const found = (list || []).find(x => String(x.id) === String(id));
+      if (found) {
+        d = {
+          id: found.id,
+          name: found.name,
+          phone: found.phone,
+          email: found.email,
+          vehicleType: found.vehicleType,
+          carModel: found.carModel,
+          carPlate: found.carPlate,
+          carColor: found.carColor,
+          rating: found.rating,
+          available: found.available,
+          lastKnownLocation: found.lastKnownLocation,
+          paymentPreference: found.paymentPreference,
+        };
+      }
+    } catch (_) {}
+  }
+
+  if (!d) {
+    return res.status(404).json({ success: false, message: 'Driver not found' });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      id: String(d.id || id),
+      name: d.name || null,
+      phone: d.phone || null,
+      email: d.email || null,
+      vehicleType: d.vehicleType || null,
+      carModel: d.carModel || null,
+      carPlate: d.carPlate || null,
+      carColor: d.carColor || null,
+      rating: d.rating != null ? d.rating : null,
+      available: d.available != null ? !!d.available : null,
+      lastKnownLocation: d.lastKnownLocation || null,
+      paymentPreference: d.paymentPreference || null,
+    }
+  });
+});

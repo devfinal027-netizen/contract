@@ -58,14 +58,18 @@ Payment.belongsTo(Subscription, {
   onUpdate: "CASCADE",
 });
 
-// Contract ↔ Subscription (1:N)
+// Contract ↔ Subscription (1:N) - Optional relationship
 Contract.hasMany(Subscription, {
   foreignKey: "contract_id",
   as: "subscriptions",
+  onDelete: "SET NULL",
+  onUpdate: "CASCADE",
 });
 Subscription.belongsTo(Contract, {
   foreignKey: "contract_id",
   as: "contract",
+  onDelete: "SET NULL",
+  onUpdate: "CASCADE",
 });
 
 // Contract ↔ RideSchedule (1:N)
@@ -123,6 +127,18 @@ ContractType.hasMany(Contract, {
   as: "contracts",
 });
 
+// Subscription ↔ ContractType (N:1)
+Subscription.belongsTo(ContractType, {
+  foreignKey: "contract_type_id",
+  as: "contractType",
+  onDelete: "RESTRICT",
+  onUpdate: "CASCADE",
+});
+ContractType.hasMany(Subscription, {
+  foreignKey: "contract_type_id",
+  as: "subscriptions",
+});
+
 // Payment ↔ Passenger (external reference → user service)
 // Subscription ↔ Passenger (external reference → user service)
 // RideSchedule ↔ Driver (external reference → driver service)
@@ -142,6 +158,7 @@ const syncDB = async () => {
     console.log("✅ Database connection established successfully.");
 
     // Sync in correct order to respect foreign key constraints
+    // Using alter: true for clean database recreation
     await Discount.sync({ alter: true });
     console.log("✅ Discount table synced successfully!");
 
@@ -151,9 +168,11 @@ const syncDB = async () => {
     await Contract.sync({ alter: true });
     console.log("✅ Contract table synced successfully!");
 
+    // Sync Subscription table with new schema (contract_id nullable, contract_type_id added)
     await Subscription.sync({ alter: true });
     console.log("✅ Subscription table synced successfully!");
 
+    // Sync Payment table with proper foreign key constraints
     await Payment.sync({ alter: true });
     console.log("✅ Payment table synced successfully!");
 

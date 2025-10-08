@@ -15,7 +15,7 @@ function extractUserFromToken(token) {
     const decoded = jwt.verify(cleanToken, process.env.JWT_SECRET || 'secret');
     
     return {
-      id: decoded.id,
+      id: String(decoded.id || decoded.userId || decoded._id || decoded.sub || (decoded.user && (decoded.user.id || decoded.user._id)) || ''),
       type: decoded.type,
       roles: decoded.roles || [],
       permissions: decoded.permissions || [],
@@ -39,13 +39,14 @@ function extractUserFromToken(token) {
  * @returns {Object} User information (never returns null fields)
  */
 async function getUserInfo(req, userId = null, userType = null) {
-  const targetUserId = userId || req.user?.id;
+  const targetUserIdRaw = userId ?? req.user?.id;
+  const targetUserId = targetUserIdRaw != null ? String(targetUserIdRaw) : null;
   const targetUserType = userType || req.user?.type;
   
   if (!targetUserId || !targetUserType) {
     return {
       id: targetUserId || 'unknown',
-      name: `${targetUserType || 'User'} ${targetUserId?.slice(-4) || 'Unknown'}`,
+      name: `${targetUserType || 'User'} ${String(targetUserId || '').slice(-4) || 'Unknown'}`,
       phone: 'Not available',
       email: 'Not available',
       vehicle_info: null,
@@ -54,16 +55,75 @@ async function getUserInfo(req, userId = null, userType = null) {
   }
 
   // First try to get info from token
+  let decodedAll = null;
+  try {
+    const authz = req.headers && req.headers.authorization ? req.headers.authorization : null;
+    if (authz) {
+      const clean = authz.startsWith('Bearer ') ? authz.slice(7) : authz;
+      decodedAll = jwt.verify(clean, process.env.JWT_SECRET || 'secret');
+    }
+  } catch (_) {}
+
   const tokenInfo = extractUserFromToken(req.headers.authorization);
-  if (tokenInfo && tokenInfo.id === targetUserId) {
-    return {
-      id: tokenInfo.id,
-      name: tokenInfo.name || `${targetUserType} ${targetUserId.slice(-4)}`,
-      phone: tokenInfo.phone || 'Not available',
-      email: tokenInfo.email || 'Not available',
-      vehicle_info: tokenInfo.vehicle_info || null,
-      type: tokenInfo.type || targetUserType
-    };
+  if (tokenInfo) {
+    // If token represents the same user id AND same user type, return directly
+    if (String(tokenInfo.id) === String(targetUserId) && (!tokenInfo.type || String(tokenInfo.type).toLowerCase() === String(targetUserType).toLowerCase())) {
+      return {
+        id: String(tokenInfo.id),
+        name: tokenInfo.name || `${targetUserType} ${String(targetUserId).slice(-4)}`,
+        phone: tokenInfo.phone || 'Not available',
+        email: tokenInfo.email || 'Not available',
+        vehicle_info: tokenInfo.vehicle_info || null,
+        type: tokenInfo.type || targetUserType
+      };
+    }
+
+    // If token embeds collections of users, try to resolve by id and type
+    if (decodedAll) {
+      const candidateContainers = [];
+      if (targetUserType === 'passenger') candidateContainers.push(decodedAll.passengers, decodedAll.users, decodedAll.userList, decodedAll.data);
+      if (targetUserType === 'driver') candidateContainers.push(decodedAll.drivers, decodedAll.users, decodedAll.userList, decodedAll.data);
+      if (targetUserType === 'admin') candidateContainers.push(decodedAll.admins, decodedAll.staff, decodedAll.users, decodedAll.userList, decodedAll.data);
+
+      const findInContainer = (container) => {
+        if (!container) return null;
+        // If it's an array
+        if (Array.isArray(container)) {
+          const found = container.find((u) => {
+            const id = u && (u.id || u._id || (u.user && (u.user.id || u.user._id)));
+            return id != null && String(id) === String(targetUserId);
+          });
+          return found || null;
+        }
+        // If it's a map-like object keyed by id
+        if (typeof container === 'object') {
+          const direct = container[targetUserId];
+          if (direct) return direct;
+          const any = Object.values(container).find((u) => String(u && (u.id || u._id)) === String(targetUserId));
+          return any || null;
+        }
+        return null;
+      };
+
+      for (const cont of candidateContainers) {
+        const found = findInContainer(cont);
+        if (found) {
+          return {
+            id: String(found.id || found._id || targetUserId),
+            name: found.name || `${targetUserType} ${String(targetUserId).slice(-4)}`,
+            phone: found.phone || 'Not available',
+            email: found.email || 'Not available',
+            vehicle_info: found.vehicle_info || {
+              carModel: found.carModel,
+              carPlate: found.carPlate,
+              carColor: found.carColor,
+              vehicleType: found.vehicleType,
+            },
+            type: targetUserType
+          };
+        }
+      }
+    }
   }
 
   // Fallback to external service
@@ -85,20 +145,33 @@ async function getUserInfo(req, userId = null, userType = null) {
         break;
     }
 
+    // For drivers, properly map vehicle information
+    let vehicle_info = null;
+    if (targetUserType === 'driver' && userInfo) {
+      vehicle_info = {
+        carModel: userInfo.carModel || null,
+        carPlate: userInfo.carPlate || null,
+        carColor: userInfo.carColor || null,
+        vehicleType: userInfo.vehicleType || null,
+      };
+    } else if (userInfo?.vehicle_info) {
+      vehicle_info = userInfo.vehicle_info;
+    }
+
     return {
-      id: targetUserId,
-      name: userInfo?.name || `${targetUserType} ${targetUserId.slice(-4)}`,
+      id: String(targetUserId),
+      name: userInfo?.name || `${targetUserType} ${String(targetUserId).slice(-4)}`,
       phone: userInfo?.phone || 'Not available',
       email: userInfo?.email || 'Not available',
-      vehicle_info: userInfo?.vehicle_info || null,
+      vehicle_info: vehicle_info,
       type: targetUserType
     };
   } catch (error) {
     console.error('Error fetching user info:', error.message);
     // Return fallback info instead of null
     return {
-      id: targetUserId,
-      name: `${targetUserType} ${targetUserId.slice(-4)}`,
+      id: String(targetUserId),
+      name: `${targetUserType} ${String(targetUserId).slice(-4)}`,
       phone: 'Not available',
       email: 'Not available',
       vehicle_info: null,
