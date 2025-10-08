@@ -16,13 +16,16 @@ function findDriverInDecoded(decoded, driverId) {
   if (!decoded) return null;
   const candidates = [
     decoded.drivers,
+    decoded.driver,
     decoded.assignedDrivers,
+    decoded.assignedDriver,
     decoded.users,
     decoded.userList,
     decoded.data,
     decoded.payload,
     decoded.context,
     decoded.user && decoded.user.drivers,
+    decoded.user && decoded.user.driver,
     decoded.user && decoded.user.users,
     decoded.user && decoded.user.data
   ];
@@ -151,10 +154,7 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
           passenger_email: passengerInfo?.email || null,
           driver_name: safeDriverNameFinal,
           driver_phone: safeDriverPhoneFinal,
-          vehicle_info: safeVehicleInfo,
-          carModel: safeVehicleInfo.carModel,
-          carPlate: safeVehicleInfo.carPlate,
-          carColor: safeVehicleInfo.carColor
+          vehicle_info: safeVehicleInfo
         },
         confirmed_at: updatedTrip.actual_pickup_time,
         confirmed_by: passengerInfo?.name || passengerId,
@@ -261,10 +261,7 @@ exports.confirmPickup = asyncHandler(async (req, res) => {
           passenger_email: passengerInfo?.email || null,
           driver_name: (driverToken2 && (driverToken2.name || driverToken2.fullName)) || `Driver ${String(trip.driver_id).slice(-4)}`,
           driver_phone: (driverToken2 && (driverToken2.phone || driverToken2.msisdn)) || 'Not available',
-          vehicle_info: safeVehicleInfo2,
-          carModel: safeVehicleInfo2.carModel,
-          carPlate: safeVehicleInfo2.carPlate,
-          carColor: safeVehicleInfo2.carColor,
+          vehicle_info: safeVehicleInfo2
         },
         confirmed_at: updatedTrip.actual_pickup_time,
         confirmed_by: passengerInfo?.name || req.user.id,
