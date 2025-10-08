@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+const { randomUUID } = require("crypto");
 const santim = require("../utils/santimpay");
 
 // NOTE: This project uses Sequelize models; SantimPay wallet requires Mongo models (Wallet, Transaction, PaymentOption, Driver, Commission).
@@ -30,7 +30,7 @@ const Wallet = {
 
 const Transaction = {
   async create(doc) {
-    const id = doc._id || new mongoose.Types.ObjectId();
+    const id = doc._id || randomUUID();
     const entry = { ...doc, _id: id, createdAt: new Date(), updatedAt: new Date() };
     memory.txs.set(String(id), entry);
     return entry;
@@ -115,15 +115,15 @@ exports.topup = async (req, res) => {
     let wallet = await Wallet.findOne({ userId, role });
     if (!wallet) wallet = await Wallet.create({ userId, role, balance: 0 });
 
-    const txId = new mongoose.Types.ObjectId();
-    const tx = await Transaction.create({ _id: txId, refId: txId.toString(), userId, role, amount, type: "credit", method: "santimpay", status: "pending", msisdn, metadata: { reason } });
+    const txId = randomUUID();
+    const tx = await Transaction.create({ _id: txId, refId: String(txId), userId, role, amount, type: "credit", method: "santimpay", status: "pending", msisdn, metadata: { reason } });
 
     const methodForGateway = normalizePaymentMethod(paymentMethod);
 
     const notifyUrl = process.env.SANTIMPAY_NOTIFY_URL || `${process.env.PUBLIC_BASE_URL || ""}/wallet/webhook`;
     let gw;
     try {
-      gw = await santim.directPayment({ id: txId.toString(), amount, paymentReason: reason, notifyUrl, phoneNumber: msisdn, paymentMethod: methodForGateway });
+      gw = await santim.directPayment({ id: String(txId), amount, paymentReason: reason, notifyUrl, phoneNumber: msisdn, paymentMethod: methodForGateway });
     } catch (err) {
       await Transaction.findByIdAndUpdate(txId, { status: 'failed', metadata: { gatewayError: String(err && err.message || err) } });
       return res.status(400).json({ message: 'payment failed' });
@@ -132,7 +132,7 @@ exports.topup = async (req, res) => {
     const gwTxnId = gw?.TxnId || gw?.txnId || gw?.data?.TxnId || gw?.data?.txnId;
     await Transaction.findByIdAndUpdate(txId, { txnId: gwTxnId, metadata: { ...tx.metadata, gatewayResponse: gw } });
 
-    return res.status(202).json({ message: "Topup initiated", transactionId: txId.toString(), gatewayTxnId: gwTxnId });
+    return res.status(202).json({ message: "Topup initiated", transactionId: String(txId), gatewayTxnId: gwTxnId });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
@@ -148,7 +148,7 @@ exports.webhook = async (req, res) => {
     if (!thirdPartyId && !gwTxnId) return res.status(200).json({ ok: false, message: "Transaction not found for webhook" });
 
     let tx = null;
-    if (thirdPartyId && mongoose.Types.ObjectId.isValid(String(thirdPartyId))) tx = await Transaction.findById(thirdPartyId);
+    if (thirdPartyId) tx = await Transaction.findById(thirdPartyId);
     if (!tx && thirdPartyId) tx = await Transaction.findOne({ refId: String(thirdPartyId) });
     if (!tx && gwTxnId) tx = await Transaction.findOne({ txnId: String(gwTxnId) });
     if (!tx) return res.status(200).json({ ok: false, message: "Transaction not found for webhook", thirdPartyId, txnId: gwTxnId, providerRefId });
