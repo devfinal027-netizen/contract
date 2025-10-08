@@ -2,22 +2,39 @@ const crypto = require("crypto");
 const axios = require("axios");
 const fs = require("fs");
 
-const BASE_URL = process.env.SANTIMPAY_BASE_URL || "https://gateway.santimpay.com/api";
-const GATEWAY_MERCHANT_ID = process.env.GATEWAY_MERCHANT_ID;
+function cleanEnvString(value) {
+  if (value == null) return null;
+  let v = String(value);
+  // trim whitespace
+  v = v.trim();
+  // strip surrounding quotes
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1);
+  }
+  // replace literal \n with newline
+  v = v.replace(/\\n/g, "\n");
+  return v;
+}
+
+const BASE_URL = cleanEnvString(process.env.SANTIMPAY_BASE_URL) || "https://gateway.santimpay.com/api";
+const GATEWAY_MERCHANT_ID = cleanEnvString(process.env.GATEWAY_MERCHANT_ID);
 
 function resolvePrivateKeyPem() {
   // Priority: explicit PEM -> BASE64 -> PATH
-  if (process.env.PRIVATE_KEY_IN_PEM && String(process.env.PRIVATE_KEY_IN_PEM).trim().length > 0) {
-    return process.env.PRIVATE_KEY_IN_PEM;
+  const pemDirect = cleanEnvString(process.env.PRIVATE_KEY_IN_PEM);
+  if (pemDirect && pemDirect.length > 0) {
+    return pemDirect;
   }
-  if (process.env.PRIVATE_KEY_BASE64 && String(process.env.PRIVATE_KEY_BASE64).trim().length > 0) {
+  const b64 = cleanEnvString(process.env.PRIVATE_KEY_BASE64);
+  if (b64 && b64.length > 0) {
     try {
-      return Buffer.from(process.env.PRIVATE_KEY_BASE64, "base64").toString("utf8");
+      return Buffer.from(b64, "base64").toString("utf8");
     } catch (_) {}
   }
-  if (process.env.PRIVATE_KEY_PATH && String(process.env.PRIVATE_KEY_PATH).trim().length > 0) {
+  const path = cleanEnvString(process.env.PRIVATE_KEY_PATH);
+  if (path && path.length > 0) {
     try {
-      return fs.readFileSync(process.env.PRIVATE_KEY_PATH, "utf8");
+      return fs.readFileSync(path, "utf8");
     } catch (_) {}
   }
   return null;
