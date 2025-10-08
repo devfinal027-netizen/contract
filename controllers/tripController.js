@@ -18,11 +18,16 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
     // Select subscription: prefer provided subscription_id, else latest ACTIVE
     let activeSubscription = null;
     if (subscription_id) {
-      activeSubscription = await Subscription.findOne({
-        where: { id: String(subscription_id), passenger_id: passengerId, status: "ACTIVE" }
-      });
+      // Find by ID first, then enforce access and status with clear messages
+      activeSubscription = await Subscription.findByPk(String(subscription_id));
       if (!activeSubscription) {
-        return res.status(404).json({ success: false, message: "Subscription not found or not active for this passenger" });
+        return res.status(404).json({ success: false, message: "Subscription not found" });
+      }
+      if (String(activeSubscription.passenger_id) !== String(passengerId)) {
+        return res.status(403).json({ success: false, message: "Access denied: subscription does not belong to this passenger" });
+      }
+      if (String(activeSubscription.status) !== "ACTIVE") {
+        return res.status(400).json({ success: false, message: `Subscription is not ACTIVE (current: ${activeSubscription.status})` });
       }
     } else {
       activeSubscription = await Subscription.findOne({
