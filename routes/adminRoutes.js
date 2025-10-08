@@ -12,6 +12,7 @@ module.exports = router;
 router.get("/subscriptions", authorize("admin"), newAdmin.getAllSubscriptions);
 router.post("/subscription/:id/approve", authorize("admin"), newAdmin.approveSubscription);
 router.post("/subscription/:id/assign-driver", authorize("admin"), newAdmin.assignDriverToSubscription);
+router.delete("/subscription/:id", authorize("admin"), newAdmin.deleteSubscriptionByAdmin);
 router.post(
   "/subscription/passenger/:passengerId/assign-driver",
   authorize("admin"),

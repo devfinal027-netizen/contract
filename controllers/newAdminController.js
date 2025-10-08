@@ -382,7 +382,7 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
     // Approve any pending payments for this subscription
     // Payment approval removed
 
-    // Get admin info for response
+    // Get admin info for response (from token)
     const adminInfo = await getUserInfo(req, adminId, 'admin');
     const passengerInfo = await getUserInfo(req, subscription.passenger_id, 'passenger');
 
@@ -393,8 +393,8 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
         subscription_id: subscriptionId,
         approved_by: adminInfo?.name || String(adminId),
         approver: {
-          id: adminInfo?.id || String(adminId),
-          name: adminInfo?.name || `Admin ${String(adminId).slice(-4)}`,
+          id: String(adminId),
+          name: adminInfo?.name || `admin ${String(adminId)}`,
           phone: adminInfo?.phone || 'Not available',
           email: adminInfo?.email || 'Not available',
         },
@@ -413,6 +413,30 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error approving subscription",
+      error: error.message
+    });
+  }
+});
+
+// DELETE /admin/subscription/:id - Delete a subscription (admin only)
+exports.deleteSubscriptionByAdmin = asyncHandler(async (req, res) => {
+  const subscriptionId = String(req.params.id);
+
+  try {
+    const deleted = await Subscription.destroy({ where: { id: subscriptionId } });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Subscription not found" });
+    }
+
+    return res.json({
+      success: true,
+      message: "Subscription deleted successfully",
+      data: { subscription_id: subscriptionId }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Error deleting subscription",
       error: error.message
     });
   }
