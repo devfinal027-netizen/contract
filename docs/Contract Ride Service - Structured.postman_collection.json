@@ -35,6 +35,10 @@
               "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/admin/subscription/{{subscriptionId}}/approve", "host": ["{{baseUrl}}"], "path": ["admin","subscription","{{subscriptionId}}","approve"] } }
             },
             {
+              "name": "Update Subscription",
+              "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": \"ACTIVE\"\n}" }, "url": { "raw": "{{baseUrl}}/admin/subscription/{{subscriptionId}}", "host": ["{{baseUrl}}"], "path": ["admin","subscription","{{subscriptionId}}"] } }
+            },
+            {
               "name": "Assign Driver to Subscription",
               "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"driver_id\": \"{{driverId}}\"\n}" }, "url": { "raw": "{{baseUrl}}/admin/subscription/{{subscriptionId}}/assign-driver", "host": ["{{baseUrl}}"], "path": ["admin","subscription","{{subscriptionId}}","assign-driver"] } }
             }
@@ -45,7 +49,7 @@
           "item": [
             { "name": "Partners", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/partners", "host": ["{{baseUrl}}"], "path": ["payments","partners"] } } },
             { "name": "List Payment Options", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } } },
-            { "name": "Create Payment Option", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"id\": \"{{paymentOptionId}}\",\n  \"name\": \"Telebirr\",\n  \"logo\": \"https://.../telebirr.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } } },
+            { "name": "Create Payment Option", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Telebirr\",\n  \"logo\": \"https://.../telebirr.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } } },
             { "name": "Update Payment Option", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Telebirr Updated\",\n  \"logo\": \"https://.../telebirr-new.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } } },
             { "name": "Delete Payment Option", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } } },
             { "name": "All Passenger Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/admin/transactions", "host": ["{{baseUrl}}"], "path": ["wallet","admin","transactions"] } } },

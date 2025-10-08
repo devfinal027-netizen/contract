@@ -442,6 +442,30 @@ exports.deleteSubscriptionByAdmin = asyncHandler(async (req, res) => {
   }
 });
 
+// PUT /admin/subscription/:id - Update a subscription (admin only)
+exports.updateSubscriptionByAdmin = asyncHandler(async (req, res) => {
+  const subscriptionId = String(req.params.id);
+  const allowed = [
+    'pickup_location','dropoff_location','pickup_latitude','pickup_longitude',
+    'dropoff_latitude','dropoff_longitude','start_date','end_date','status','payment_status',
+    'driver_id','driver_name','driver_phone','driver_email','vehicle_info'
+  ];
+  const updateData = {};
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+      updateData[key] = req.body[key];
+    }
+  }
+  const sub = await Subscription.findByPk(subscriptionId);
+  if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+  await sub.update(updateData);
+  const updated = await Subscription.findByPk(subscriptionId);
+  return res.json({ success: true, message: 'Subscription updated successfully', data: updated });
+});
+
+// PUT /admin/contract-types/:id - Update contract type (already exists via controller)
+// DELETE /admin/contract-types/:id - Delete contract type (already exists via controller)
+
 // GET /admin/trips - Get all trips with filters
 exports.getAllTrips = asyncHandler(async (req, res) => {
   const { status, driverId, passengerId, start_date, end_date } = req.query;

@@ -10,7 +10,6 @@ const ContractType = sequelize.define("ContractType", {
   name: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    unique: true,
     validate: {
       notEmpty: true,
       len: [1, 100]
@@ -83,10 +82,8 @@ const ContractType = sequelize.define("ContractType", {
   tableName: "contract_types",
   timestamps: true,
   indexes: [
-    {
-      unique: true,
-      fields: ['name']
-    },
+    // Keep a single unique index on name to avoid duplicate ALTERs across environments
+    { unique: true, fields: ['name'], name: 'uniq_contract_types_name' },
     {
       fields: ['is_active']
     }

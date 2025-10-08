@@ -6,6 +6,8 @@ const controller = require("../controllers/paymentOptionController");
 // Admin manages options
 router.get("/options", authorize("admin", "passenger", "driver"), controller.list);
 router.post("/options", authorize("admin"), controller.create);
+router.put("/options/:id", authorize("admin"), controller.update);
+router.delete("/options/:id", authorize("admin"), controller.remove);
 router.get("/partners", authorize("admin", "passenger", "driver"), controller.partners);
 
 // User sets preference
