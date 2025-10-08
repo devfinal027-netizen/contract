@@ -142,7 +142,24 @@ exports.webhook = async (req, res) => {
     if (thirdPartyId) tx = await Transaction.findById(thirdPartyId);
     if (!tx && thirdPartyId) tx = await Transaction.findOne({ refId: String(thirdPartyId) });
     if (!tx && gwTxnId) tx = await Transaction.findOne({ txnId: String(gwTxnId) });
-    if (!tx) return res.status(200).json({ ok: false, message: "Transaction not found for webhook", thirdPartyId, txnId: gwTxnId, providerRefId });
+    if (!tx) {
+      // If not a wallet tx, try to update a subscription payment via shared webhook
+      try {
+        const { Subscription } = require("../models/indexModel");
+        const rawStatus = (data.Status || data.status || "").toString().toUpperCase();
+        const success = ["COMPLETED", "SUCCESS", "APPROVED"].includes(rawStatus);
+        // Match by thirdPartyId (we used subscription id) or by gateway txn id stored as payment_reference
+        let subscription = null;
+        if (thirdPartyId) subscription = await Subscription.findByPk(String(thirdPartyId));
+        if (!subscription && gwTxnId) subscription = await Subscription.findOne({ where: { payment_reference: String(gwTxnId) } });
+        if (subscription) {
+          const update = success ? { payment_status: "PAID", status: "ACTIVE", payment_reference: gwTxnId || subscription.payment_reference } : { payment_status: "FAILED", payment_reference: gwTxnId || subscription.payment_reference };
+          await Subscription.update(update, { where: { id: subscription.id } });
+          return res.status(200).json({ ok: true, subscription_id: subscription.id, status: success ? "PAID" : "FAILED", gatewayTxnId: gwTxnId, shared: true });
+        }
+      } catch (_) {}
+      return res.status(200).json({ ok: false, message: "Transaction not found for webhook", thirdPartyId, txnId: gwTxnId, providerRefId });
+    }
 
     const rawStatus = (data.Status || data.status || "").toString().toUpperCase();
     const normalizedStatus = ["COMPLETED", "SUCCESS", "APPROVED"].includes(rawStatus) ? "success" : ["FAILED", "CANCELLED", "DECLINED"].includes(rawStatus) ? "failed" : "pending";

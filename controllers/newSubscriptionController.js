@@ -238,11 +238,11 @@ exports.processPayment = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Build absolute notify URL fallback if env not set
-    const base = (process.env.PUBLIC_BASE_URL && String(process.env.PUBLIC_BASE_URL).trim())
-      ? String(process.env.PUBLIC_BASE_URL).trim().replace(/\/$/, "")
-      : `${req.protocol}://${req.get("host")}/api`;
-    const notifyUrl = `${base}/subscription/payment/webhook`;
+    // Use unified SantimPay notify URL only (single webhook endpoint)
+    const notifyUrl = String(process.env.SANTIMPAY_NOTIFY_URL || '').trim();
+    if (!notifyUrl) {
+      return res.status(500).json({ success: false, message: "SANTIMPAY_NOTIFY_URL is not configured" });
+    }
     const reason = `Subscription Payment ${subscriptionId}`;
 
     // Structured debug log before gateway call (no secrets)
