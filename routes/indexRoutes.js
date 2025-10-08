@@ -15,6 +15,8 @@ const driverRoutes = require("./driverRoutes");
 const adminRoutes = require("./adminRoutes");
 const contractTypeRoutes = require("./contractTypeRoutes");
 const paymentOptionRoutes = require("./paymentOptionRoutes");
+const paymentsAdminRoutes = require("./payments/admin");
+const paymentsPassengerRoutes = require("./payments/passenger");
 
 // New workflow routes
 const newSubscriptionRoutes = require("./newSubscriptionRoutes");
@@ -41,6 +43,8 @@ router.use("/driver", driverRoutes);
 router.use("/admin", adminRoutes);
 router.use("/wallet", walletRoutes);
 router.use("/payments", paymentOptionRoutes);
+router.use("/payments/admin", paymentsAdminRoutes);
+router.use("/payments/passenger", paymentsPassengerRoutes);
 
 // New workflow routes
 router.use("/subscription", newSubscriptionRoutes);

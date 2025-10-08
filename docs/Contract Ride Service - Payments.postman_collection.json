@@ -1,0 +1,63 @@
+{
+	"info": {
+		"_postman_id": "b1a3c1a0-0000-4000-9000-000000000001",
+		"name": "Contract Ride Service - Payments (Structured)",
+		"description": "Payments collection split by role: Passenger vs Admin.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Payments - Passenger",
+			"item": [
+				{
+					"name": "Pay Subscription (SantimPay)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{passengerToken}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": { "mode": "raw", "raw": "{\n  \"amount\": 100,\n  \"paymentMethod\": \"telebirr\"\n}" },
+						"url": { "raw": "{{baseUrl}}/payments/passenger/subscription/{{subscriptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","passenger","subscription","{{subscriptionId}}"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Payments - Admin",
+			"item": [
+				{
+					"name": "Get Pending Payments",
+					"request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ], "url": { "raw": "{{baseUrl}}/payments/admin/pending", "host": ["{{baseUrl}}"], "path": ["payments","admin","pending"] } }
+				},
+				{
+					"name": "Approve Payment",
+					"request": { "method": "PATCH", "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" } ], "url": { "raw": "{{baseUrl}}/payments/admin/{{paymentId}}/approve", "host": ["{{baseUrl}}"], "path": ["payments","admin","{{paymentId}}","approve"] } }
+				},
+				{
+					"name": "Reject Payment",
+					"request": { "method": "PATCH", "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"rejection_reason\": \"Invalid transaction reference\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/admin/{{paymentId}}/reject", "host": ["{{baseUrl}}"], "path": ["payments","admin","{{paymentId}}","reject"] } }
+				}
+			]
+		},
+		{
+			"name": "Payment Options & Wallet",
+			"item": [
+				{ "name": "Partners", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{passengerToken}}" } ], "url": { "raw": "{{baseUrl}}/payments/partners", "host": ["{{baseUrl}}"], "path": ["payments","partners"] } } },
+				{ "name": "Create Payment Option (Admin)", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Telebirr\",\n  \"logo\": \"https://.../telebirr.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } } },
+				{ "name": "Get Payment Preference", "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{passengerToken}}" } ], "url": { "raw": "{{baseUrl}}/payments/preference", "host": ["{{baseUrl}}"], "path": ["payments","preference"] } } },
+				{ "name": "Set Payment Preference", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"payment_option_id\": \"{{paymentOptionId}}\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/preference", "host": ["{{baseUrl}}"], "path": ["payments","preference"] } } },
+				{ "name": "Wallet Topup", "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{driverToken}}" }, { "key": "Content-Type", "value": "application/json" } ], "body": { "mode": "raw", "raw": "{\n  \"amount\": 100,\n  \"paymentMethod\": \"telebirr\",\n  \"reason\": \"Wallet Topup\"\n}" }, "url": { "raw": "{{baseUrl}}/wallet/topup", "host": ["{{baseUrl}}"], "path": ["wallet","topup"] } } }
+			]
+		}
+	],
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:3000/api", "type": "string" },
+		{ "key": "authToken", "value": "", "type": "string" },
+		{ "key": "passengerToken", "value": "", "type": "string" },
+		{ "key": "driverToken", "value": "", "type": "string" },
+		{ "key": "subscriptionId", "value": "", "type": "string" },
+		{ "key": "paymentId", "value": "", "type": "string" }
+	]
+}
+
