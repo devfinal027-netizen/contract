@@ -1,7 +1,7 @@
 const { ContractSettings, Subscription, Payment, Trip, TripSchedule, Contract, ContractType } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
 const { getDriverById, getPassengerById, listDrivers } = require("../utils/userService");
-const { approvePayment, rejectPayment, getPendingPayments } = require("./paymentController");
+// Payment endpoints removed as requested
 const { getUserInfo } = require("../utils/tokenHelper");
 
 // POST /admin/contracts/sample - Create sample contracts for testing
@@ -332,7 +332,7 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
   }
 });
 
-// PATCH /admin/subscription/:id/approve - Approve subscription and payment
+// PATCH /admin/subscription/:id/approve - Approve subscription only (payments removed)
 exports.approveSubscription = asyncHandler(async (req, res) => {
   const subscriptionId = String(req.params.id);
   const adminId = req.user.id;
@@ -380,20 +380,7 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
     });
 
     // Approve any pending payments for this subscription
-    if (subscription.payments && subscription.payments.length > 0) {
-      await Promise.all(
-        subscription.payments.map(payment => 
-          Payment.update({
-            admin_approved: true,
-            approved_by: adminId,
-            approved_at: new Date(),
-            status: "SUCCESS"
-          }, {
-            where: { id: payment.id }
-          })
-        )
-      );
-    }
+    // Payment approval removed
 
     // Get admin info for response
     const adminInfo = await getUserInfo(req, adminId, 'admin');
@@ -574,12 +561,7 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
 });
 
 // Payment approval methods - delegate to paymentController
-exports.getPendingPayments = asyncHandler(async (req, res, next) => {
-  // Delegate, then re-map to ensure only pending are returned and enrich from token helper
-  return getPendingPayments(req, res, next);
-});
-exports.approvePayment = approvePayment;
-exports.rejectPayment = rejectPayment;
+// Removed: getPendingPayments, approvePayment, rejectPayment
 
 // GET /admin/drivers - List drivers from external user service (not token)
 exports.getDrivers = asyncHandler(async (req, res) => {

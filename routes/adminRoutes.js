@@ -6,18 +6,7 @@ const { authorize } = require("../middleware/auth");
 // Pricing and dashboard endpoints removed from legacy adminController to reduce duplication
 
 module.exports = router;
-// --- Additional admin management endpoints (mirrored for compatibility) ---
-// Payments
-router.get("/payments/pending", authorize("admin"), newAdmin.getPendingPayments);
-router.post("/payment/:id/approve", authorize("admin"), newAdmin.approvePayment);
-router.post("/payment/approve", authorize("admin"), (req, res, next) => {
-  if (req.body && req.body.id) {
-    req.params.id = req.body.id;
-    return newAdmin.approvePayment(req, res, next);
-  }
-  return res.status(400).json({ success: false, message: "id is required in body" });
-});
-router.post("/payment/:id/reject", authorize("admin"), newAdmin.rejectPayment);
+// --- Additional admin management endpoints (payments endpoints removed) ---
 
 // Subscriptions
 router.get("/subscriptions", authorize("admin"), newAdmin.getAllSubscriptions);
