@@ -140,7 +140,7 @@
         { "name": "Get Active Contract Types", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/active", "host": ["{{baseUrl}}"], "path": ["contract-types","active"] } } },
         { "name": "Get Contract Type by ID", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/{{contractTypeId}}", "host": ["{{baseUrl}}"], "path": ["contract-types","{{contractTypeId}}"] } } }
       ]
-    }
+    },
     {
       "name": "Driver",
       "item": [
