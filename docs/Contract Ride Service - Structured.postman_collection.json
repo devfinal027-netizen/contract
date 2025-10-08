@@ -45,9 +45,12 @@
           "item": [
             { "name": "Partners", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/partners", "host": ["{{baseUrl}}"], "path": ["payments","partners"] } } },
             { "name": "List Payment Options", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } } },
-            { "name": "Get Pending Payments", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/admin/pending", "host": ["{{baseUrl}}"], "path": ["payments","admin","pending"] } } },
-            { "name": "Approve Payment", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/admin/{{paymentId}}/approve", "host": ["{{baseUrl}}"], "path": ["payments","admin","{{paymentId}}","approve"] } } },
-            { "name": "Reject Payment", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"rejection_reason\": \"Invalid transaction reference\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/admin/{{paymentId}}/reject", "host": ["{{baseUrl}}"], "path": ["payments","admin","{{paymentId}}","reject"] } } }
+            { "name": "Create Payment Option", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"id\": \"{{paymentOptionId}}\",\n  \"name\": \"Telebirr\",\n  \"logo\": \"https://.../telebirr.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } } },
+            { "name": "Update Payment Option", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Telebirr Updated\",\n  \"logo\": \"https://.../telebirr-new.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } } },
+            { "name": "Delete Payment Option", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } } },
+            { "name": "All Passenger Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/admin/transactions", "host": ["{{baseUrl}}"], "path": ["wallet","admin","transactions"] } } },
+            { "name": "Get Passenger Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/transactions/{{passengerId}}", "host": ["{{baseUrl}}"], "path": ["wallet","transactions","{{passengerId}}"] } } },
+            { "name": "Get Passenger Wallet (Balances)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/admin/balances", "host": ["{{baseUrl}}"], "path": ["wallet","admin","balances"] } } }
           ]
         },
         {
@@ -102,6 +105,12 @@
           ]
         },
         {
+          "name": "Wallet",
+          "item": [
+            { "name": "My Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/transactions", "host": ["{{baseUrl}}"], "path": ["wallet","transactions"] } } }
+          ]
+        },
+        {
           "name": "Trips",
           "item": [
             { "name": "Confirm Pickup", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"subscription_id\": \"{{subscriptionId}}\",\n  \"notes\": \"Pickup confirmed\"\n}" }, "url": { "raw": "{{baseUrl}}/trip/pickup", "host": ["{{baseUrl}}"], "path": ["trip","pickup"] } } },
@@ -136,12 +145,6 @@
             { "name": "Trip History", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{driverToken}}" }], "url": { "raw": "{{baseUrl}}/driver/{{driverId}}/triphistory", "host": ["{{baseUrl}}"], "path": ["driver","{{driverId}}","triphistory"] } } }
           ]
         }
-      ]
-    },
-    {
-      "name": "Driver",
-      "item": [
-        
       ]
     }
   ],
