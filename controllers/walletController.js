@@ -76,27 +76,7 @@ function normalizeMsisdnEt(raw) {
   return s;
 }
 
-function normalizePaymentMethod(method) {
-  const raw = String(method || "").trim();
-  const m = raw.toLowerCase();
-  const table = {
-    telebirr: 'Telebirr', tele: 'Telebirr', 'tele-birr': 'Telebirr', 'tele birr': 'Telebirr',
-    cbe: 'CBE', 'cbe-birr': 'CBE', cbebirr: 'CBE', 'cbe birr': 'CBE',
-    hellocash: 'HelloCash', 'hello-cash': 'HelloCash', 'hello cash': 'HelloCash',
-    mpesa: 'MPesa', 'm-pesa': 'MPesa', 'm pesa': 'MPesa', 'm_pesa': 'MPesa',
-    abyssinia: 'Abyssinia', 'bank of abyssinia': 'Abyssinia',
-    awash: 'Awash', 'awash bank': 'Awash',
-    dashen: 'Dashen', 'dashen bank': 'Dashen',
-    bunna: 'Bunna', 'bunna bank': 'Bunna',
-    amhara: 'Amhara', 'amhara bank': 'Amhara',
-    berhan: 'Berhan', 'berhan bank': 'Berhan',
-    zamzam: 'ZamZam', 'zamzam bank': 'ZamZam',
-    yimlu: 'Yimlu',
-  };
-  if (table[m]) return table[m];
-  if (m.includes('bank')) return 'CBE';
-  return raw;
-}
+function normalizePaymentMethod(method) { return String(method || "").trim(); }
 
 exports.topup = async (req, res) => {
   try {
@@ -196,6 +176,26 @@ exports.transactions = async (req, res) => {
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
+};
+
+// Admin helpers (in-memory impl)
+exports.adminBalances = async (req, res) => {
+  try {
+    if (req.user.type !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const out = [];
+    for (const [key, w] of memory.wallets.entries()) {
+      out.push({ userId: w.userId, role: w.role, balance: w.balance });
+    }
+    return res.json({ balances: out });
+  } catch (e) { return res.status(500).json({ message: e.message }); }
+};
+
+exports.adminTransactions = async (req, res) => {
+  try {
+    if (req.user.type !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const rows = await Transaction.find({});
+    return res.json({ transactions: rows });
+  } catch (e) { return res.status(500).json({ message: e.message }); }
 };
 
 exports.withdraw = async (req, res) => {

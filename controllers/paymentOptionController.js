@@ -6,6 +6,20 @@ exports.list = asyncHandler(async (req, res) => {
   return res.json(rows.map(r => ({ id: r.id, name: r.name, logo: r.logo })));
 });
 
+exports.partners = asyncHandler(async (_req, res) => {
+  return res.json({
+    partners: [
+      { id: "telebirr", name: "Telebirr", description: "Telebirr is a mobile money service provider in Ethiopia", input: "phone number", type: "MOBILE_MONEY" },
+      { id: "cbebirr", name: "Cbe Birr", description: "CBE Birr is a mobile money service provider in Ethiopia", input: "phone number", type: "MOBILE_MONEY" },
+      { id: "mpesa", name: "Mpesa", description: "Mpsea is a mobile money service provider in Ethiopia by Safaricom", input: "phone number", type: "MOBILE_MONEY" },
+      { id: "cbe", name: "Commercial Bank of Ethiopia", description: "Commercial Bank of Ethiopia is the largest bank Ethiopia", input: "account number,phone number", type: "BANK" },
+      { id: "D‑MONEY", name: "D‑Money", description: "Mobile money in Djibouti", input: "phone number", type: "MOBILE_MONEY" },
+      { id: "WAFFI", name: "Waffi", description: "Mobile money in Djibouti", input: "phone number", type: "MOBILE_MONEY" },
+      { id: "CAC", name: "CAC", description: "Mobile money in Djibouti", input: "phone number", type: "MOBILE_MONEY" },
+    ]
+  });
+});
+
 exports.create = asyncHandler(async (req, res) => {
   const { name, logo } = req.body || {};
   if (!name || String(name).trim() === '') return res.status(400).json({ message: 'name is required' });

@@ -207,7 +207,7 @@ exports.processPayment = asyncHandler(async (req, res) => {
       }
     } catch (_) {}
   }
-  const paymentMethod = normalizePaymentMethod(paymentMethodRaw || 'Telebirr');
+  const paymentMethod = String(paymentMethodRaw || 'telebirr').trim();
   const tokenPhone = req.user && (req.user.phone || req.user.phoneNumber || req.user.mobile);
   const msisdn = normalizeMsisdnEt(tokenPhone || req.body.phoneNumber);
   if (!msisdn) {
