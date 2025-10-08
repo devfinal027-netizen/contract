@@ -81,13 +81,7 @@ const ContractType = sequelize.define("ContractType", {
 }, {
   tableName: "contract_types",
   timestamps: true,
-  indexes: [
-    // Keep a single unique index on name to avoid duplicate ALTERs across environments
-    { unique: true, fields: ['name'], name: 'uniq_contract_types_name' },
-    {
-      fields: ['is_active']
-    }
-  ]
+  indexes: []
 });
 
 module.exports = ContractType;

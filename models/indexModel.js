@@ -164,7 +164,8 @@ const syncDB = async () => {
     await Discount.sync({ alter: true });
     console.log("✅ Discount table synced successfully!");
 
-    await ContractType.sync({ alter: true });
+    // Avoid altering ContractType to prevent exceeding MySQL index limits in some environments
+    await ContractType.sync();
     console.log("✅ ContractType table synced successfully!");
 
     await Contract.sync({ alter: true });

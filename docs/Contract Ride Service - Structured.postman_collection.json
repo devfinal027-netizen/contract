@@ -42,6 +42,11 @@
               "name": "Assign Driver to Subscription",
               "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"driver_id\": \"{{driverId}}\"\n}" }, "url": { "raw": "{{baseUrl}}/admin/subscription/{{subscriptionId}}/assign-driver", "host": ["{{baseUrl}}"], "path": ["admin","subscription","{{subscriptionId}}","assign-driver"] } }
             }
+            ,
+            {
+              "name": "Delete Subscription",
+              "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/admin/subscription/{{subscriptionId}}", "host": ["{{baseUrl}}"], "path": ["admin","subscription","{{subscriptionId}}"] } }
+            }
           ]
         },
         {
@@ -76,7 +81,8 @@
             { "name": "Create Contract Type", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Premium Individual\",\n  \"description\": \"...\",\n  \"base_price_per_km\": 15.5,\n  \"discount_percentage\": 10,\n  \"minimum_fare\": 50,\n  \"maximum_passengers\": 1,\n  \"features\": { \"wifi\": true, \"ac\": true },\n  \"is_active\": true\n}" }, "url": { "raw": "{{baseUrl}}/contract-types", "host": ["{{baseUrl}}"], "path": ["contract-types"] } } },
             { "name": "Get All Contract Types", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types", "host": ["{{baseUrl}}"], "path": ["contract-types"] } } },
             { "name": "Get Active Contract Types", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/active", "host": ["{{baseUrl}}"], "path": ["contract-types","active"] } } },
-            { "name": "Get Contract Type by ID", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/{{contractTypeId}}", "host": ["{{baseUrl}}"], "path": ["contract-types","{{contractTypeId}}"] } } }
+            { "name": "Get Contract Type by ID", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/{{contractTypeId}}", "host": ["{{baseUrl}}"], "path": ["contract-types","{{contractTypeId}}"] } } },
+            { "name": "Delete Contract Type", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/{{contractTypeId}}", "host": ["{{baseUrl}}"], "path": ["contract-types","{{contractTypeId}}"] } } }
           ]
         }
       ]
