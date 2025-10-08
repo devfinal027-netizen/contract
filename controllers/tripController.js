@@ -1,6 +1,49 @@
 const { Trip, Subscription, Contract, TripSchedule } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
 const { getUserInfo } = require("../utils/tokenHelper");
+const jwt = require('jsonwebtoken');
+
+function decodeToken(req) {
+  try {
+    const authz = req.headers && req.headers.authorization ? req.headers.authorization : null;
+    if (!authz) return null;
+    const clean = authz.startsWith('Bearer ') ? authz.slice(7) : authz;
+    return jwt.verify(clean, process.env.JWT_SECRET || 'secret');
+  } catch (_) { return null; }
+}
+
+function findDriverInDecoded(decoded, driverId) {
+  if (!decoded) return null;
+  const candidates = [
+    decoded.drivers,
+    decoded.assignedDrivers,
+    decoded.users,
+    decoded.userList,
+    decoded.data,
+    decoded.payload,
+    decoded.context,
+    decoded.user && decoded.user.drivers,
+    decoded.user && decoded.user.users,
+    decoded.user && decoded.user.data
+  ];
+  const isMatch = (u) => {
+    if (!u) return false;
+    const id = u.id || u._id || (u.user && (u.user.id || u.user._id));
+    return id != null && String(id) === String(driverId);
+  };
+  for (const cont of candidates) {
+    if (!cont) continue;
+    if (Array.isArray(cont)) {
+      const found = cont.find(isMatch);
+      if (found) return found;
+    } else if (typeof cont === 'object') {
+      if (cont[String(driverId)]) return cont[String(driverId)];
+      const found = Object.values(cont).find(isMatch);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 // POST /trip/pickup - Create trip at pickup and return trip_id
 exports.createTripOnPickup = asyncHandler(async (req, res) => {
@@ -72,11 +115,17 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
 
     const updatedTrip = await Trip.findByPk(trip.id);
     const passengerInfo = await getUserInfo(req, passengerId, 'passenger');
-    const driverInfo = await getUserInfo(req, assignedDriverId, 'driver');
-    // Build non-null driver fields from token only (no fallbacks)
-    const safeDriverName = driverInfo?.name || `Driver ${String(assignedDriverId).slice(-4)}`;
-    const safeDriverPhone = driverInfo?.phone || 'Not available';
-    const v = driverInfo?.vehicle_info || {};
+    const decoded = decodeToken(req);
+    const driverToken = findDriverInDecoded(decoded, assignedDriverId);
+    // Build non-null driver fields from token only
+    const safeDriverName = (driverToken && (driverToken.name || driverToken.fullName)) || `Driver ${String(assignedDriverId).slice(-4)}`;
+    const safeDriverPhone = (driverToken && (driverToken.phone || driverToken.msisdn)) || 'Not available';
+    const v = (driverToken && (driverToken.vehicle_info || {
+      carModel: driverToken.carModel,
+      carPlate: driverToken.carPlate,
+      carColor: driverToken.carColor,
+      vehicleType: driverToken.vehicleType,
+    })) || {};
     const safeVehicleInfo = {
       carModel: v?.carModel || v?.vehicleType || 'Not available',
       carPlate: v?.carPlate || 'Not available',
@@ -179,8 +228,14 @@ exports.confirmPickup = asyncHandler(async (req, res) => {
     // Get updated trip with passenger info
     const updatedTrip = await Trip.findByPk(tripId);
     const passengerInfo = await getUserInfo(req, trip.passenger_id, 'passenger');
-    const driverInfo = await getUserInfo(req, trip.driver_id, 'driver');
-    const v2 = driverInfo?.vehicle_info || {};
+    const decoded2 = decodeToken(req);
+    const driverToken2 = findDriverInDecoded(decoded2, trip.driver_id);
+    const v2 = (driverToken2 && (driverToken2.vehicle_info || {
+      carModel: driverToken2.carModel,
+      carPlate: driverToken2.carPlate,
+      carColor: driverToken2.carColor,
+      vehicleType: driverToken2.vehicleType,
+    })) || {};
     const safeVehicleInfo2 = {
       carModel: v2?.carModel || v2?.vehicleType || 'Not available',
       carPlate: v2?.carPlate || 'Not available',
@@ -197,8 +252,8 @@ exports.confirmPickup = asyncHandler(async (req, res) => {
           passenger_name: passengerInfo?.name || null,
           passenger_phone: passengerInfo?.phone || null,
           passenger_email: passengerInfo?.email || null,
-          driver_name: driverInfo?.name || `Driver ${String(trip.driver_id).slice(-4)}`,
-          driver_phone: driverInfo?.phone || 'Not available',
+          driver_name: (driverToken2 && (driverToken2.name || driverToken2.fullName)) || `Driver ${String(trip.driver_id).slice(-4)}`,
+          driver_phone: (driverToken2 && (driverToken2.phone || driverToken2.msisdn)) || 'Not available',
           vehicle_info: safeVehicleInfo2,
           carModel: safeVehicleInfo2.carModel,
           carPlate: safeVehicleInfo2.carPlate,
