@@ -418,25 +418,56 @@ exports.getPassengerSubscriptions = asyncHandler(async (req, res) => {
     const enrichedSubscriptions = await Promise.all(
       subscriptions.map(async (subscription) => {
         const subData = subscription.toJSON();
-        let driverInfo = null;
-        
+        let driverFromToken = null;
+        let driverFromExternal = null;
+
+        // Fetch driver from token helper (may include embedded vehicle_info)
         if (subscription.driver_id) {
-          driverInfo = await getUserInfo(req, subscription.driver_id, 'driver');
+          try {
+            driverFromToken = await getUserInfo(req, subscription.driver_id, 'driver');
+          } catch (_) {}
+
+          // Also try external user service for richer fields (admin-like)
+          try {
+            const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+            driverFromExternal = await getDriverById(subscription.driver_id, authHeader);
+          } catch (_) {}
         }
-        
+
+        // Build merged driver details with fallbacks
+        const driver_name = (driverFromExternal && driverFromExternal.name) || (driverFromToken && driverFromToken.name) || subData.driver_name || null;
+        const driver_phone = (driverFromExternal && driverFromExternal.phone) || (driverFromToken && driverFromToken.phone) || subData.driver_phone || (subscription.driver_id ? 'Not available' : null);
+        const driver_email = (driverFromExternal && driverFromExternal.email) || (driverFromToken && driverFromToken.email) || subData.driver_email || (subscription.driver_id ? 'Not available' : null);
+
+        // Normalize vehicle info to snake_case as per stored schema and sample response
+        const normalizedVehicleInfo = (function() {
+          const fromExternal = driverFromExternal ? {
+            car_model: driverFromExternal.carModel || driverFromExternal.vehicleType || null,
+            car_plate: driverFromExternal.carPlate || null,
+            car_color: driverFromExternal.carColor || null,
+          } : null;
+          const fromToken = driverFromToken && driverFromToken.vehicle_info ? {
+            car_model: driverFromToken.vehicle_info.carModel || driverFromToken.vehicle_info.vehicleType || null,
+            car_plate: driverFromToken.vehicle_info.carPlate || null,
+            car_color: driverFromToken.vehicle_info.carColor || null,
+          } : null;
+          const fromStored = subData.vehicle_info || null;
+          return fromExternal || fromToken || fromStored || null;
+        })();
+
         const endDate = new Date(subscription.end_date);
         const today = new Date();
         const daysUntilExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
-        
+
         return {
           ...subData,
           passenger_name: passengerInfo?.name || subData.passenger_name || null,
           passenger_phone: passengerInfo?.phone || subData.passenger_phone || null,
           passenger_email: passengerInfo?.email || subData.passenger_email || null,
-          driver_name: driverInfo?.name || subData.driver_name || null,
-          driver_phone: driverInfo?.phone || subData.driver_phone || null,
-          driver_email: driverInfo?.email || subData.driver_email || null,
-          vehicle_info: driverInfo?.vehicle_info || subData.vehicle_info || null,
+          driver_name,
+          driver_phone,
+          driver_email,
+          vehicle_info: normalizedVehicleInfo,
           expiration_date: subscription.end_date,
           days_until_expiry: daysUntilExpiry,
           is_expired: daysUntilExpiry < 0,
