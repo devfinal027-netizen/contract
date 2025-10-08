@@ -47,37 +47,44 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Attempt to fetch driver info from external service first
+    // Prioritize token-derived info (as requested), then external service, then stored fields
     const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-    let fetched = null;
-    try {
-      fetched = await getDriverById(driverId, authHeader);
-    } catch (_) {}
-
-    // Fallback to token/external user info helper for resilience (admin-like behavior)
     let tokenHelperInfo = null;
-    try {
-      tokenHelperInfo = await getUserInfo(req, driverId, 'driver');
-    } catch (_) {}
+    let fetched = null;
+    try { tokenHelperInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
+    try { fetched = await getDriverById(driverId, authHeader); } catch (_) {}
 
-    // Build final driver object by merging (priority: fetched -> tokenHelper -> subscription stored fields)
     const subData = subscription.toJSON();
-    const merged = {
+    const name = (tokenHelperInfo && tokenHelperInfo.name) || (fetched && fetched.name) || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
+    const phone = (tokenHelperInfo && tokenHelperInfo.phone) || (fetched && fetched.phone) || subData.driver_phone || 'Not available';
+    const email = (tokenHelperInfo && tokenHelperInfo.email) || (fetched && fetched.email) || subData.driver_email || 'Not available';
+
+    // Derive vehicle details in both admin-like top-level fields and snake_case vehicle_info
+    const vehicleType = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.vehicleType) || (fetched && fetched.vehicleType) || null;
+    const carModel = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carModel) || (fetched && fetched.carModel) || null;
+    const carPlate = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carPlate) || (fetched && fetched.carPlate) || null;
+    const carColor = (tokenHelperInfo && tokenHelperInfo.vehicle_info && tokenHelperInfo.vehicle_info.carColor) || (fetched && fetched.carColor) || null;
+
+    const assignedDriver = {
       id: String(driverId),
-      name: (fetched && fetched.name) || (tokenHelperInfo && tokenHelperInfo.name) || subData.driver_name || `Driver ${String(driverId).slice(-4)}`,
-      phone: (fetched && fetched.phone) || (tokenHelperInfo && tokenHelperInfo.phone) || subData.driver_phone || 'Not available',
-      email: (fetched && fetched.email) || (tokenHelperInfo && tokenHelperInfo.email) || subData.driver_email || 'Not available',
+      name,
+      phone,
+      email,
+      // Admin-like fields for parity
+      vehicleType,
+      carModel,
+      carPlate,
+      carColor,
+      rating: (fetched && fetched.rating) != null ? fetched.rating : null,
+      available: (fetched && fetched.available) != null ? !!fetched.available : null,
+      lastKnownLocation: fetched && fetched.lastKnownLocation ? fetched.lastKnownLocation : null,
+      paymentPreference: fetched && fetched.paymentPreference ? fetched.paymentPreference : null,
+      // Backward compatible nested vehicle_info
       vehicle_info: (function() {
-        const fromFetched = fetched ? { car_model: fetched.carModel, car_plate: fetched.carPlate, car_color: fetched.carColor, vehicleType: fetched.vehicleType } : null;
-        const fromToken = tokenHelperInfo && tokenHelperInfo.vehicle_info ? {
-          car_model: tokenHelperInfo.vehicle_info.carModel,
-          car_plate: tokenHelperInfo.vehicle_info.carPlate,
-          car_color: tokenHelperInfo.vehicle_info.carColor,
-          vehicleType: tokenHelperInfo.vehicle_info.vehicleType,
-        } : null;
-        const fromSub = subData.vehicle_info || null;
-        // Prefer external/token info; fallback to stored vehicle_info (already snake_case in DB)
-        return fromFetched || fromToken || fromSub || null;
+        if (carModel || carPlate || carColor || vehicleType) {
+          return { car_model: carModel || vehicleType || null, car_plate: carPlate || null, car_color: carColor || null };
+        }
+        return subData.vehicle_info || null;
       })(),
       type: "driver"
     };
@@ -92,7 +99,7 @@ exports.getAssignedDriver = asyncHandler(async (req, res) => {
           start_date: subscription.start_date,
           end_date: subscription.end_date,
         },
-        assigned_driver: merged,
+        assigned_driver: assignedDriver,
       }
     });
   } catch (error) {
