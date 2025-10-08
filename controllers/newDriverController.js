@@ -365,7 +365,10 @@ exports.getDriverTripHistory = asyncHandler(async (req, res) => {
 
   const trips = await Trip.findAll({
       where: whereClause,
-    order: [['actual_dropoff_time', 'DESC'], ['createdAt', 'DESC']],
+      include: [
+        { model: Subscription, as: "subscription", attributes: ["id", "passenger_name", "passenger_phone", "passenger_email"] }
+      ],
+      order: [['actual_dropoff_time', 'DESC'], ['createdAt', 'DESC']],
     });
 
     // Decode token once
@@ -376,12 +379,16 @@ exports.getDriverTripHistory = asyncHandler(async (req, res) => {
       trips.map(async (trip) => {
         const tripData = trip.toJSON();
         const passengerFromToken = findPassengerInDecoded(decoded, trip.passenger_id);
+        const sub = tripData.subscription || {};
 
         const name = (passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName))
+          || sub.passenger_name
           || `Passenger ${String(trip.passenger_id).slice(-4)}`;
         const phone = (passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn))
+          || sub.passenger_phone
           || 'Not available';
         const email = (passengerFromToken && passengerFromToken.email)
+          || sub.passenger_email
           || 'Not available';
         
         return {
