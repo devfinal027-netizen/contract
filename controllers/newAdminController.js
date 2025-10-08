@@ -373,8 +373,7 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
 
     // Update subscription status
     await Subscription.update({
-      status: "ACTIVE",
-      payment_status: "PAID"
+      status: "ACTIVE"
     }, {
       where: { id: subscriptionId }
     });
@@ -405,8 +404,7 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
           phone: passengerInfo?.phone || 'Not available',
           email: passengerInfo?.email || 'Not available',
         },
-        new_status: "ACTIVE",
-        payment_status: "PAID"
+        new_status: "ACTIVE"
       }
     });
   } catch (error) {

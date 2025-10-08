@@ -126,7 +126,7 @@ exports.createSubscription = asyncHandler(async (req, res) => {
       final_fare: fareResult.data.total_fare,
       distance_km: fareResult.data.distance_km,
       status: "PENDING",
-      payment_status: "PENDING",
+      // payment_status is set by payment webhook only
     };
 
     const subscription = await Subscription.create(subscriptionData);
@@ -259,7 +259,7 @@ exports.processPayment = asyncHandler(async (req, res) => {
 
     console.log("[Payment] Gateway response", { ok: !!gw, gwTxnId, raw: gw });
 
-    await Subscription.update({ payment_status: "PENDING", payment_reference: gwTxnId || String(subscriptionId) }, { where: { id: subscriptionId } });
+    await Subscription.update({ payment_reference: gwTxnId || String(subscriptionId) }, { where: { id: subscriptionId } });
 
     return res.json({ success: true, message: "Subscription payment initiated", data: { subscription_id: subscriptionId, gatewayTxnId: gwTxnId, amount, payment_method: paymentMethod } });
   } catch (error) {

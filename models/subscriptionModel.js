@@ -123,7 +123,8 @@ const Subscription = sequelize.define(
     },
     payment_status: {
       type: DataTypes.ENUM("PENDING", "PAID", "FAILED", "REFUNDED"),
-      defaultValue: "PENDING",
+      allowNull: true,
+      defaultValue: null,
     },
     payment_reference: {
       type: DataTypes.STRING,
