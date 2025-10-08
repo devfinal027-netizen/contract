@@ -1,6 +1,5 @@
 const { Subscription, Trip, TripSchedule } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
-const { getPassengerById } = require("../utils/userService");
 const { getUserInfo } = require("../utils/tokenHelper");
 const { Op } = require("sequelize");
 
@@ -29,16 +28,14 @@ exports.getDriverPassengers = asyncHandler(async (req, res) => {
     // Enrich with passenger information and expiration details
     const enrichedPassengers = await Promise.all(
       subscriptions.map(async (subscription) => {
-        const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
-        let externalPassenger = null;
+        // Use token-derived info only, as requested; fallback to stored fields
         let tokenPassenger = null;
-        try { externalPassenger = await getPassengerById(subscription.passenger_id, authHeader); } catch (_) {}
         try { tokenPassenger = await getUserInfo(req, subscription.passenger_id, 'passenger'); } catch (_) {}
 
         const subData = subscription.toJSON();
-        const name = (externalPassenger && externalPassenger.name) || (tokenPassenger && tokenPassenger.name) || subData.passenger_name || `Passenger ${String(subscription.passenger_id).slice(-4)}`;
-        const phone = (externalPassenger && externalPassenger.phone) || (tokenPassenger && tokenPassenger.phone) || subData.passenger_phone || 'Not available';
-        const email = (externalPassenger && externalPassenger.email) || (tokenPassenger && tokenPassenger.email) || subData.passenger_email || 'Not available';
+        const name = (tokenPassenger && tokenPassenger.name) || subData.passenger_name || `Passenger ${String(subscription.passenger_id).slice(-4)}`;
+        const phone = (tokenPassenger && tokenPassenger.phone) || subData.passenger_phone || 'Not available';
+        const email = (tokenPassenger && tokenPassenger.email) || subData.passenger_email || 'Not available';
 
         const endDate = new Date(subscription.end_date);
         const today = new Date();
