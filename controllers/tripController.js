@@ -95,7 +95,10 @@ exports.createTripOnPickup = asyncHandler(async (req, res) => {
           passenger_email: passengerInfo?.email || null,
           driver_name: safeDriverName,
           driver_phone: safeDriverPhone,
-          vehicle_info: safeVehicleInfo
+          vehicle_info: safeVehicleInfo,
+          carModel: safeVehicleInfo.carModel,
+          carPlate: safeVehicleInfo.carPlate,
+          carColor: safeVehicleInfo.carColor
         },
         confirmed_at: updatedTrip.actual_pickup_time,
         confirmed_by: passengerInfo?.name || passengerId,
@@ -197,6 +200,9 @@ exports.confirmPickup = asyncHandler(async (req, res) => {
           driver_name: driverInfo?.name || `Driver ${String(trip.driver_id).slice(-4)}`,
           driver_phone: driverInfo?.phone || 'Not available',
           vehicle_info: safeVehicleInfo2,
+          carModel: safeVehicleInfo2.carModel,
+          carPlate: safeVehicleInfo2.carPlate,
+          carColor: safeVehicleInfo2.carColor,
         },
         confirmed_at: updatedTrip.actual_pickup_time,
         confirmed_by: passengerInfo?.name || req.user.id,
