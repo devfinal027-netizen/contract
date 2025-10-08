@@ -193,12 +193,19 @@ exports.getDriverSchedule = asyncHandler(async (req, res) => {
       scheduleSubscriptions.map(async (subscription) => {
         const subData = subscription.toJSON();
         const passengerFromToken = findPassengerInDecoded(decoded, subscription.passenger_id);
+
+        const name = (passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName))
+          || subData.passenger_name || `Passenger ${String(subscription.passenger_id).slice(-4)}`;
+        const phone = (passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn))
+          || subData.passenger_phone || 'Not available';
+        const email = (passengerFromToken && passengerFromToken.email)
+          || subData.passenger_email || 'Not available';
         
         return {
           ...subData,
-          passenger_name: (passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName)) || subscription.passenger_name || null,
-          passenger_phone: (passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn)) || subscription.passenger_phone || null,
-          passenger_email: (passengerFromToken && passengerFromToken.email) || subscription.passenger_email || null,
+          passenger_name: name,
+          passenger_phone: phone,
+          passenger_email: email,
         };
       })
     );
@@ -369,12 +376,19 @@ exports.getDriverTripHistory = asyncHandler(async (req, res) => {
       trips.map(async (trip) => {
         const tripData = trip.toJSON();
         const passengerFromToken = findPassengerInDecoded(decoded, trip.passenger_id);
+
+        const name = (passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName))
+          || `Passenger ${String(trip.passenger_id).slice(-4)}`;
+        const phone = (passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn))
+          || 'Not available';
+        const email = (passengerFromToken && passengerFromToken.email)
+          || 'Not available';
         
         return {
           ...tripData,
-          passenger_name: (passengerFromToken && (passengerFromToken.name || passengerFromToken.fullName)) || null,
-          passenger_phone: (passengerFromToken && (passengerFromToken.phone || passengerFromToken.msisdn)) || null,
-          passenger_email: (passengerFromToken && passengerFromToken.email) || null,
+          passenger_name: name,
+          passenger_phone: phone,
+          passenger_email: email,
           trip_duration: trip.actual_dropoff_time && trip.actual_pickup_time ? 
             Math.round((new Date(trip.actual_dropoff_time) - new Date(trip.actual_pickup_time)) / (1000 * 60)) : null, // in minutes
         };
