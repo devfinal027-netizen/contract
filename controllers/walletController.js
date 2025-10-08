@@ -31,16 +31,14 @@ exports.topup = async (req, res) => {
     if (!msisdn) return res.status(400).json({ message: "Invalid phone format in token. Required: +2519XXXXXXXX" });
 
     const userId = String(req.user.id);
-    const role = req.user.type;
 
-    let wallet = await Wallet.findOne({ where: { userId, role } });
-    if (!wallet) wallet = await Wallet.create({ userId, role, balance: 0 });
+    let wallet = await Wallet.findOne({ where: { userId } });
+    if (!wallet) wallet = await Wallet.create({ userId, balance: 0 });
 
     const txId = randomUUID();
     const tx = await Transaction.create({ 
       refId: String(txId), 
       userId, 
-      role, 
       amount, 
       type: "credit", 
       method: "santimpay", 
@@ -216,24 +214,24 @@ exports.webhook = async (req, res) => {
         // If this is a provider deposit for drivers, convert to package using dynamic commissionRate
         let delta = providerAmount;
         try {
-          // For drivers, apply commission rate (simplified for MySQL environment)
-          let commissionRate = Number(process.env.COMMISSION_RATE || 15);
-          if (tx.role === 'driver') {
+          // Apply commission rate if configured
+          let commissionRate = Number(process.env.COMMISSION_RATE || 0);
+          if (commissionRate > 0) {
             // Simple commission calculation: amount * (1 - commissionRate/100)
             delta = providerAmount * (1 - commissionRate / 100);
           }
         } catch (_) {}
         // Find or create wallet and update balance
-        let wallet = await Wallet.findOne({ where: { userId: tx.userId, role: tx.role } });
+        let wallet = await Wallet.findOne({ where: { userId: tx.userId } });
         if (!wallet) {
-          wallet = await Wallet.create({ userId: tx.userId, role: tx.role, balance: 0 });
+          wallet = await Wallet.create({ userId: tx.userId, balance: 0 });
         }
         await wallet.update({ balance: parseFloat(wallet.balance) + delta });
       } else if (tx.type === "debit") {
         // Find or create wallet and update balance for debit
-        let wallet = await Wallet.findOne({ where: { userId: tx.userId, role: tx.role } });
+        let wallet = await Wallet.findOne({ where: { userId: tx.userId } });
         if (!wallet) {
-          wallet = await Wallet.create({ userId: tx.userId, role: tx.role, balance: 0 });
+          wallet = await Wallet.create({ userId: tx.userId, balance: 0 });
         }
         await wallet.update({ balance: parseFloat(wallet.balance) - providerAmount });
       }
@@ -241,7 +239,6 @@ exports.webhook = async (req, res) => {
         // eslint-disable-next-line no-console
         console.log("[wallet-webhook] wallet mutated:", {
           userId: tx.userId,
-          role: tx.role,
           type: tx.type,
           delta: tx.type === "credit" ? providerAmount : -providerAmount,
         });
@@ -294,7 +291,7 @@ exports.adminBalances = async (req, res) => {
     if (req.user.type !== 'admin') return res.status(403).json({ message: 'Access denied' });
     const wallets = await Wallet.findAll({
       where: { isActive: true },
-      attributes: ['userId', 'role', 'balance', 'currency', 'lastTransactionAt']
+      attributes: ['userId', 'balance', 'currency', 'lastTransactionAt']
     });
     return res.json({ balances: wallets });
   } catch (e) { return res.status(500).json({ message: e.message }); }
@@ -308,7 +305,7 @@ exports.adminTransactions = async (req, res) => {
       include: [{
         model: Wallet,
         as: 'wallet',
-        attributes: ['userId', 'role']
+        attributes: ['userId']
       }]
     });
     return res.json({ transactions: rows });
