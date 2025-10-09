@@ -15,8 +15,7 @@ const driverRoutes = require("./driverRoutes");
 const adminRoutes = require("./adminRoutes");
 const contractTypeRoutes = require("./contractTypeRoutes");
 const paymentOptionRoutes = require("./paymentOptionRoutes");
-const paymentsAdminRoutes = require("./payments/admin");
-const paymentsPassengerRoutes = require("./payments/passenger");
+// legacy separated payments removed in favor of single manual + SantimPay flows
 const webhookRoutes = require("./webhookRoutes");
 
 // New workflow routes
@@ -48,8 +47,6 @@ router.use("/driver", driverRoutes);
 router.use("/admin", adminRoutes);
 router.use("/wallet", walletRoutes);
 router.use("/payments", paymentOptionRoutes);
-router.use("/payments/admin", paymentsAdminRoutes);
-router.use("/payments/passenger", paymentsPassengerRoutes);
 
 // New workflow routes
 router.use("/subscription", newSubscriptionRoutes);

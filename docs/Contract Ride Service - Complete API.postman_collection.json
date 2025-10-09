@@ -111,18 +111,7 @@
               "name": "Delete Payment Option",
               "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } }
             },
-            {
-              "name": "Get Pending Payments",
-              "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/admin/pending", "host": ["{{baseUrl}}"], "path": ["payments","admin","pending"] } }
-            },
-            {
-              "name": "Approve Payment",
-              "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/admin/{{paymentId}}/approve", "host": ["{{baseUrl}}"], "path": ["payments","admin","{{paymentId}}","approve"] } }
-            },
-            {
-              "name": "Reject Payment",
-              "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/admin/{{paymentId}}/reject", "host": ["{{baseUrl}}"], "path": ["payments","admin","{{paymentId}}","reject"] } }
-            }
+            
           ]
         },
         {
