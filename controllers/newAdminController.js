@@ -271,7 +271,7 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
         const today = new Date();
         const daysUntilExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
         
-        return {
+        const cleaned = {
           ...subData,
           passenger_id: subscription.passenger_id,
           contract_type_name: subscription.contractType?.name || null,
@@ -301,6 +301,10 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
           })),
           trip_count: trips.length,
         };
+
+        // Remove contract_id to avoid redundancy; contract_type_name provides context
+        delete cleaned.contract_id;
+        return cleaned;
       })
     );
 
@@ -623,12 +627,20 @@ exports.getTripsByPassenger = asyncHandler(async (req, res) => {
     const trips = await Trip.findAll({
       where: { passenger_id: passengerId },
       include: [
-        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'] },
+        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'], include: [{ model: ContractType, as: 'contractType', attributes: ['name'] }] },
         { model: TripSchedule, as: "schedule", required: false }
       ],
       order: [['createdAt', 'DESC']]
     });
-    return res.json({ success: true, data: { passenger_id: passengerId, trips } });
+    const mapped = trips.map(t => {
+      const j = t.toJSON();
+      if (j.subscription && j.subscription.contractType) {
+        j.subscription.contract_type_name = j.subscription.contractType.name || null;
+        delete j.subscription.contractType;
+      }
+      return j;
+    });
+    return res.json({ success: true, data: { passenger_id: passengerId, trips: mapped } });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Error fetching passenger trips", error: error.message });
   }
@@ -641,12 +653,20 @@ exports.getTripsByDriver = asyncHandler(async (req, res) => {
     const trips = await Trip.findAll({
       where: { driver_id: driverId },
       include: [
-        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'] },
+        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'], include: [{ model: ContractType, as: 'contractType', attributes: ['name'] }] },
         { model: TripSchedule, as: "schedule", required: false }
       ],
       order: [['createdAt', 'DESC']]
     });
-    return res.json({ success: true, data: { driver_id: driverId, trips } });
+    const mapped = trips.map(t => {
+      const j = t.toJSON();
+      if (j.subscription && j.subscription.contractType) {
+        j.subscription.contract_type_name = j.subscription.contractType.name || null;
+        delete j.subscription.contractType;
+      }
+      return j;
+    });
+    return res.json({ success: true, data: { driver_id: driverId, trips: mapped } });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Error fetching driver trips", error: error.message });
   }
