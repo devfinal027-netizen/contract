@@ -243,6 +243,7 @@
               "name": "Manual Payment (Upload Receipt)",
               "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "body": { "mode": "formdata", "formdata": [
                 { "key": "subscription_id", "value": "{{subscriptionId}}", "type": "text" },
+                { "key": "amount", "value": "100.00", "type": "text" },
                 { "key": "payment_method", "value": "Manual Bank Transfer", "type": "text" },
                 { "key": "transaction_reference", "value": "BANK-TXN-12345", "type": "text" },
                 { "key": "receipt_image", "type": "file", "src": [] }
