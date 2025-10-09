@@ -86,6 +86,16 @@
           "name": "Payments",
           "item": [
             {
+              "name": "Manual Payments",
+              "item": [
+                { "name": "Get Pending Manual Payments", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/manual/pending", "host": ["{{baseUrl}}"], "path": ["payments","manual","pending"] } } },
+                { "name": "Approve Manual Payment", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/manual/{{paymentId}}/approve", "host": ["{{baseUrl}}"], "path": ["payments","manual","{{paymentId}}","approve"] } } },
+                { "name": "Reject Manual Payment", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/manual/{{paymentId}}/reject", "host": ["{{baseUrl}}"], "path": ["payments","manual","{{paymentId}}","reject"] } } },
+                { "name": "List Manual Payments", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/manual", "host": ["{{baseUrl}}"], "path": ["payments","manual"] } } },
+                { "name": "Get Manual Payment by ID", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/manual/{{paymentId}}", "host": ["{{baseUrl}}"], "path": ["payments","manual","{{paymentId}}"] } } }
+              ]
+            },
+            {
               "name": "List Payment Options",
               "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } }
             },
@@ -254,6 +264,15 @@
         {
           "name": "Payments",
           "item": [
+            {
+              "name": "Manual Payment (Upload Receipt)",
+              "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "body": { "mode": "formdata", "formdata": [
+                { "key": "subscription_id", "value": "{{subscriptionId}}", "type": "text" },
+                { "key": "payment_method", "value": "Manual Bank Transfer", "type": "text" },
+                { "key": "transaction_reference", "value": "BANK-TXN-12345", "type": "text" },
+                { "key": "receipt_image", "type": "file", "src": [] }
+              ] }, "url": { "raw": "{{baseUrl}}/payments/manual", "host": ["{{baseUrl}}"], "path": ["payments","manual"] } }
+            },
             {
               "name": "List Payment Options",
               "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } }
