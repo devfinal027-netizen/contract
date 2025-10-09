@@ -315,6 +315,30 @@ exports.webhook = async (req, res) => {
   }
 };
 
+exports.getBalance = async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+    const wallet = await Wallet.findOne({ where: { userId } });
+    
+    if (!wallet) {
+      return res.json({ 
+        balance: 0, 
+        currency: "ETB",
+        userId 
+      });
+    }
+    
+    return res.json({ 
+      balance: parseFloat(wallet.balance),
+      currency: wallet.currency,
+      userId,
+      lastTransactionAt: wallet.lastTransactionAt
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
 exports.transactions = async (req, res) => {
   try {
     const userId = req.params.userId || req.user.id;

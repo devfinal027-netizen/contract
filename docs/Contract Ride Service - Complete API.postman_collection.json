@@ -276,6 +276,10 @@
           "name": "Wallet",
           "item": [
             {
+              "name": "Get My Balance",
+              "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/balance", "host": ["{{baseUrl}}"], "path": ["wallet","balance"] } }
+            },
+            {
               "name": "Wallet Topup",
               "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"amount\": 100,\n  \"paymentMethod\": \"Telebirr\",\n  \"reason\": \"Wallet Topup\"\n}" }, "url": { "raw": "{{baseUrl}}/wallet/topup", "host": ["{{baseUrl}}"], "path": ["wallet","topup"] } }
             },

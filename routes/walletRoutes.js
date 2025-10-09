@@ -6,6 +6,7 @@ const controller = require("../controllers/walletController");
 // Topup and webhook
 router.post("/topup", authorize("passenger"), controller.topup);
 router.post("/webhook", controller.webhook);
+router.get("/balance", authorize("passenger"), controller.getBalance);
 router.get("/transactions", authorize("admin", "passenger"), controller.transactions);
 router.get("/transactions/:userId", authorize("admin"), controller.transactions);
 router.get("/admin/balances", authorize("admin"), controller.adminBalances);
