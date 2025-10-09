@@ -4,8 +4,40 @@ const { getDriverById } = require("../utils/userService");
 const { getUserInfo } = require("../utils/tokenHelper");
 const { calculateFareFromCoordinates } = require("../utils/pricingService");
 
-// GET /passenger/:id/driver - Get assigned driver for latest subscription (ACTIVE first, else most recent)
-exports.getAssignedDriver = asyncHandler(async (req, res) => {
+// GET /passenger/subscription/:subscriptionId/driver - Get assigned driver for a subscription
+exports.getAssignedDriverBySubscription = asyncHandler(async (req, res) => {
+  const subscriptionId = String(req.params.subscriptionId);
+  const subscription = await Subscription.findByPk(subscriptionId, { include: [{ model: Contract, as: "contract", include: [{ model: RideSchedule, as: "ride_schedules", where: { is_active: true }, required: false }] }] });
+  if (!subscription) return res.status(404).json({ success: false, message: "Subscription not found" });
+
+  if (req.user.type === "passenger" && String(req.user.id) !== String(subscription.passenger_id)) {
+    return res.status(403).json({ success: false, message: "Access denied" });
+  }
+
+  const driverId = subscription.driver_id || subscription.contract?.ride_schedules?.[0]?.driver_id;
+  if (!driverId) return res.status(404).json({ success: false, message: "No driver assigned to this subscription" });
+
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+  let fetched = null;
+  let tokenHelperInfo = null;
+  try { fetched = await getDriverById(driverId, authHeader); } catch (_) {}
+  try { tokenHelperInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
+
+  const subData = subscription.toJSON();
+  const safe = (v) => v && String(v).trim() !== '' && v !== 'Not available';
+  const name = (fetched && safe(fetched.name) && fetched.name) || (tokenHelperInfo && safe(tokenHelperInfo.name) && tokenHelperInfo.name) || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
+  const phone = (fetched && safe(fetched.phone) && fetched.phone) || (tokenHelperInfo && safe(tokenHelperInfo.phone) && tokenHelperInfo.phone) || subData.driver_phone || 'Not available';
+  const email = (fetched && safe(fetched.email) && fetched.email) || (tokenHelperInfo && safe(tokenHelperInfo.email) && tokenHelperInfo.email) || subData.driver_email || 'Not available';
+  const assignedDriver = Object.fromEntries(Object.entries({
+    id: String(driverId),
+    name, phone, email,
+    carModel: fetched?.carModel || tokenHelperInfo?.vehicle_info?.carModel || subData.vehicle_info?.car_model || null,
+    carPlate: fetched?.carPlate || tokenHelperInfo?.vehicle_info?.carPlate || subData.vehicle_info?.car_plate || null,
+    carColor: fetched?.carColor || tokenHelperInfo?.vehicle_info?.carColor || subData.vehicle_info?.car_color || null,
+  }).filter(([_, v]) => v != null));
+
+  return res.json({ success: true, data: { subscription_id: subscriptionId, assigned_driver: assignedDriver } });
+});
   const passengerId = String(req.params.id);
 
   // Check if user can access this passenger's data

@@ -187,7 +187,7 @@ exports.listTrips = asyncHandler(async (req, res) => {
     return res.status(500).json({ success: false, message: "Error listing trips", error: error.message });
   }
 });
-// PATCH /trip/:id/pickup - Confirm pickup by passenger
+// Deprecated: pickup confirmation now happens at creation
 exports.confirmPickup = asyncHandler(async (req, res) => {
   const tripId = req.params.id;
   const { notes } = req.body;
@@ -658,7 +658,7 @@ exports.startTrip = asyncHandler(async (req, res) => {
   }
 });
 
-// PATCH /trip/:id/complete - Complete a trip
+// Deprecated: use confirmDropoff instead
 exports.completeTrip = asyncHandler(async (req, res) => {
   const tripId = req.params.id;
   const { notes, rating } = req.body;

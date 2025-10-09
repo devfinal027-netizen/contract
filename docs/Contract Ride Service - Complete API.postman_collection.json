@@ -216,14 +216,7 @@
               "name": "Get Trip Details",
               "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/trip/{{tripId}}", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}"] } }
             },
-            {
-              "name": "Complete Trip",
-              "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Trip completed\",\n  \"rating\": 5\n}" }, "url": { "raw": "{{baseUrl}}/trip/{{tripId}}/complete", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}","complete"] } }
-            },
-            {
-              "name": "Confirm Pickup",
-              "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Pickup confirmed\"\n}" }, "url": { "raw": "{{baseUrl}}/trip/{{tripId}}/pickup", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}","pickup"] } }
-            },
+            
             {
               "name": "Confirm Dropoff",
               "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Dropoff confirmed\"\n}" }, "url": { "raw": "{{baseUrl}}/trip/{{tripId}}/dropoff", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}","dropoff"] } }
@@ -238,12 +231,8 @@
           "name": "Driver Assignment",
           "item": [
             {
-              "name": "Get My Assigned Driver",
-              "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/passenger/me/driver", "host": ["{{baseUrl}}"], "path": ["passenger","me","driver"] } }
-            },
-            {
-              "name": "Get Assigned Driver by ID",
-              "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/passenger/{{passengerId}}/driver", "host": ["{{baseUrl}}"], "path": ["passenger","{{passengerId}}","driver"] } }
+              "name": "Get Assigned Driver by Subscription",
+              "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/passenger/subscription/{{subscriptionId}}/driver", "host": ["{{baseUrl}}"], "path": ["passenger","subscription","{{subscriptionId}}","driver"] } }
             }
           ]
         },
