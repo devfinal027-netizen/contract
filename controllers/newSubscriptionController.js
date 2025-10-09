@@ -302,6 +302,60 @@ exports.subscriptionPaymentWebhook = asyncHandler(async (req, res) => {
     const update = success ? { payment_status: "PAID", status: "ACTIVE", payment_reference: gwTxnId || subscription.payment_reference } : { payment_status: "FAILED", payment_reference: gwTxnId || subscription.payment_reference };
     await Subscription.update(update, { where: { id: subscription.id } });
 
+    // If payment is successful, create a wallet transaction for the subscription payment
+    if (success) {
+      try {
+        const { Wallet, Transaction } = require("../models/indexModel");
+        const { randomUUID } = require("crypto");
+        
+        // Get or create wallet for the passenger
+        const userId = String(subscription.passenger_id);
+        let wallet = await Wallet.findOne({ where: { userId } });
+        if (!wallet) {
+          wallet = await Wallet.create({ userId, balance: 0 });
+        }
+
+        // Create transaction record for the subscription payment
+        const txId = randomUUID();
+        const amount = parseFloat(subscription.final_fare || subscription.total_fare || 0);
+        
+        await Transaction.create({
+          refId: String(txId),
+          txnId: gwTxnId,
+          userId,
+          amount,
+          type: "debit", // Subscription payment is a debit from passenger's perspective
+          method: "santimpay",
+          status: "success",
+          msisdn: data.Msisdn || data.msisdn,
+          walletId: wallet.id,
+          metadata: {
+            subscriptionId: subscription.id,
+            reason: "Subscription Payment",
+            gatewayResponse: data
+          }
+        });
+
+        // Update wallet balance (debit for subscription payment)
+        const newBalance = parseFloat(wallet.balance) - amount;
+        await wallet.update({ 
+          balance: newBalance,
+          lastTransactionAt: new Date()
+        });
+
+        console.log("[Subscription Webhook] Created wallet transaction", {
+          subscriptionId: subscription.id,
+          userId,
+          amount,
+          txId,
+          gwTxnId
+        });
+      } catch (walletError) {
+        console.error("[Subscription Webhook] Failed to create wallet transaction:", walletError);
+        // Don't fail the webhook if wallet transaction creation fails
+      }
+    }
+
     return res.status(200).json({ ok: true, subscription_id: subscription.id, status: success ? "PAID" : "FAILED", gatewayTxnId: gwTxnId });
   } catch (e) {
     return res.status(200).json({ ok: false, error: e.message });
