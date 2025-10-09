@@ -198,9 +198,6 @@
               "name": "Get Pending Subscriptions",
               "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/subscription/pending", "host": ["{{baseUrl}}"], "path": ["subscription","pending"] } }
             },
-            {
-              "name": "Calculate Subscription Price",
-              "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/passenger/subscription/price?contract_type_id={{contractTypeId}}&pickup_location=Addis&dropoff_location=Bole", "host": ["{{baseUrl}}"], "path": ["passenger","subscription","price"] } }
             }
           ]
         },

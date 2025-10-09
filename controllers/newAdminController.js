@@ -219,6 +219,7 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
 
     const subscriptions = await Subscription.findAll({
       where: whereClause,
+      include: [{ model: ContractType, as: 'contractType', attributes: ['id','name'] }],
       order: [['createdAt', 'DESC']],
     });
 
@@ -273,6 +274,7 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
         return {
           ...subData,
           passenger_id: subscription.passenger_id,
+          contract_type_name: subscription.contractType?.name || null,
           passenger_name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
           passenger_phone: passengerInfo?.phone || 'Not available',
           passenger_email: passengerInfo?.email || 'Not available',

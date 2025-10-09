@@ -19,7 +19,6 @@ router.get("/:id/subscriptions", authorize("admin", "passenger"), getPassengerSu
 router.patch("/trip/:id/pickup", authorize("admin", "passenger"), controller.confirmPickup);
 router.patch("/trip/:id/end", authorize("admin", "passenger"), controller.confirmTripEnd);
 
-// Subscription pricing
-router.get("/subscription/price", authorize("admin", "passenger"), controller.calculateSubscriptionPrice);
+// Subscription pricing endpoint removed; price is calculated during creation
 
 module.exports = router;
