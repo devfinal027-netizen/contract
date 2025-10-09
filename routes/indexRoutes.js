@@ -17,13 +17,18 @@ const contractTypeRoutes = require("./contractTypeRoutes");
 const paymentOptionRoutes = require("./paymentOptionRoutes");
 const paymentsAdminRoutes = require("./payments/admin");
 const paymentsPassengerRoutes = require("./payments/passenger");
+const webhookRoutes = require("./webhookRoutes");
 
 // New workflow routes
 const newSubscriptionRoutes = require("./newSubscriptionRoutes");
 const walletRoutes = require("./walletRoutes");
 // using newAdminController via adminRoutes only
 
-// ✅ all routes require authentication
+// ✅ all routes require authentication except webhooks
+// Webhook routes (no authentication required for external webhooks)
+router.use("/webhook", webhookRoutes);
+
+// All other routes require authentication
 router.use(authenticate);
 
 // Mount routes with appropriate prefixes

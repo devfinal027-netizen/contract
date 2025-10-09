@@ -23,6 +23,11 @@ const Transaction = sequelize.define("Transaction", {
     allowNull: false,
     comment: "User ID from token service",
   },
+  role: {
+    type: DataTypes.ENUM("driver", "passenger", "admin"),
+    allowNull: false,
+    comment: "User role",
+  },
   type: {
     type: DataTypes.ENUM("credit", "debit"),
     allowNull: false,
@@ -91,6 +96,10 @@ const Transaction = sequelize.define("Transaction", {
     {
       fields: ["userId"],
       name: "idx_user_id",
+    },
+    {
+      fields: ["userId", "role"],
+      name: "idx_user_role",
     },
     {
       fields: ["status"],
