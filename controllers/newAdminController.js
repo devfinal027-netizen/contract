@@ -371,7 +371,15 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
       });
     }
 
-    // Update subscription status
+    // Enforce: admin can approve ONLY if payment_status is PAID
+    if (subscription.payment_status !== "PAID") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot approve subscription. Payment status must be PAID, got: ${subscription.payment_status || "null"}`
+      });
+    }
+
+    // Update subscription status only (payment already handled by webhook)
     await Subscription.update({
       status: "ACTIVE"
     }, {
@@ -387,7 +395,7 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
 
     res.json({
       success: true,
-      message: "Subscription and payment approved successfully",
+      message: "Subscription approved successfully",
       data: {
         subscription_id: subscriptionId,
         approved_by: adminInfo?.name || String(adminId),
