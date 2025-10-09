@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const { sequelize } = require("./indexModel");
+const { sequelize } = require("../config/dbconfig");
 
 const Wallet = sequelize.define("Wallet", {
   id: {
