@@ -54,3 +54,29 @@ exports.getPreference = asyncHandler(async (req, res) => {
   return res.json({ preferences: prefs.map(p => ({ payment_option_id: p.payment_option_id, is_active: p.is_active })) });
 });
 
+// UPDATE payment option (admin)
+exports.update = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, logo } = req.body || {};
+  const row = await PaymentOption.findByPk(id);
+  if (!row) return res.status(404).json({ message: 'Payment option not found' });
+  if (name && String(name).trim() !== row.name) {
+    const dupe = await PaymentOption.findOne({ where: { name: String(name).trim() } });
+    if (dupe) return res.status(409).json({ message: 'Payment option with this name already exists' });
+  }
+  await row.update({
+    name: name != null ? String(name).trim() : row.name,
+    logo: logo != null ? logo : row.logo,
+  });
+  return res.json({ id: row.id, name: row.name, logo: row.logo });
+});
+
+// DELETE payment option (admin)
+exports.remove = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const row = await PaymentOption.findByPk(id);
+  if (!row) return res.status(404).json({ message: 'Payment option not found' });
+  await row.destroy();
+  return res.json({ success: true, id });
+});
+

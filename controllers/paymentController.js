@@ -5,6 +5,23 @@ const path = require("path");
 const { getPassengerById, getAdminById } = require("../utils/userService");
 const { getUserInfo } = require("../utils/tokenHelper");
 
+// Normalize flexible payment_method inputs to model ENUM values
+function normalizeManualPaymentMethod(input) {
+  if (!input) return null;
+  const s = String(input).trim().toLowerCase();
+  if (["bank", "bank_transfer", "manual bank", "manual bank transfer", "bank transfer"].includes(s)) return "BANK_TRANSFER";
+  if (["mobile", "mobile_money", "mobile money", "momo", "telebirr", "cbe birr", "cbebirr", "cbe", "amole", "hello cash", "hellocash", "hellocash"].includes(s)) {
+    if (s.includes("telebirr")) return "TELEBIRR";
+    if (s.includes("amole")) return "AMOLE";
+    if (s.includes("hello")) return "HELLO_CASH";
+    return "MOBILE_MONEY";
+  }
+  if (["cash"].includes(s)) return "CASH";
+  if (["card", "visa", "mastercard"].includes(s)) return "CARD";
+  // Fallback: try upper snake case
+  return s.replace(/\s+/g, "_").toUpperCase();
+}
+
 // CREATE payment for subscription (used by newSubscriptionController)
 exports.createPaymentForSubscription = async (subscriptionId, paymentData, file = null) => {
   try {
@@ -72,15 +89,15 @@ exports.createPaymentForSubscription = async (subscriptionId, paymentData, file 
   }
 };
 
-// CREATE with file upload (legacy endpoint)
+// CREATE with file upload (manual payment submission)
 exports.createPayment = asyncHandler(async (req, res) => {
   const { subscription_id, amount, payment_method, transaction_reference, due_date } = req.body;
 
-  // Validate required fields
-  if (!subscription_id || !amount || !payment_method) {
+  // Validate required fields (amount optional - inferred from subscription if missing)
+  if (!subscription_id || !payment_method) {
     return res.status(400).json({
       success: false,
-      message: "subscription_id, amount, and payment_method are required"
+      message: "subscription_id and payment_method are required"
     });
   }
 
@@ -100,12 +117,14 @@ exports.createPayment = asyncHandler(async (req, res) => {
     });
   }
 
+  const inferredAmount = amount != null && amount !== '' ? parseFloat(amount) : parseFloat(subscription.final_fare || subscription.total_fare || 0);
+  const normalizedMethod = normalizeManualPaymentMethod(payment_method);
   const paymentData = {
     subscription_id,
     contract_id: subscription.contract_id,
     passenger_id: req.user.id,
-    amount: parseFloat(amount),
-    payment_method,
+    amount: inferredAmount,
+    payment_method: normalizedMethod,
     transaction_reference,
     due_date: due_date || new Date(),
     status: "PENDING",
@@ -121,6 +140,7 @@ exports.createPayment = asyncHandler(async (req, res) => {
   res.status(201).json({ 
     success: true, 
     message: "Payment submitted for admin approval",
+    paymentId: payment.id,
     data: payment 
   });
 });

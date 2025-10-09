@@ -1,168 +1,42 @@
 const { Trip, Subscription, Contract, RideSchedule } = require("../models/indexModel");
 const { asyncHandler } = require("../middleware/errorHandler");
+const { getDriverById } = require("../utils/userService");
 const { getUserInfo } = require("../utils/tokenHelper");
-const jwt = require('jsonwebtoken');
-
-function decodeToken(req) {
-  try {
-    const authz = req.headers && req.headers.authorization ? req.headers.authorization : null;
-    if (!authz) return null;
-    const clean = authz.startsWith('Bearer ') ? authz.slice(7) : authz;
-    return jwt.verify(clean, process.env.JWT_SECRET || 'secret');
-  } catch (_) { return null; }
-}
-
-function findDriverInDecoded(decoded, driverId) {
-  if (!decoded) return null;
-  const candidates = [
-    decoded.drivers,
-    decoded.driver,
-    decoded.assignedDrivers,
-    decoded.assignedDriver,
-    decoded.users,
-    decoded.userList,
-    decoded.data,
-    decoded.payload,
-    decoded.context,
-    decoded.user && decoded.user.drivers,
-    decoded.user && decoded.user.driver,
-    decoded.user && decoded.user.users,
-    decoded.user && decoded.user.data
-  ];
-  const isMatch = (u) => {
-    if (!u) return false;
-    const id = u.id || u._id || (u.user && (u.user.id || u.user.__id));
-    return id != null && String(id) === String(driverId);
-  };
-  for (const cont of candidates) {
-    if (!cont) continue;
-    if (Array.isArray(cont)) {
-      const found = cont.find(isMatch);
-      if (found) return found;
-    } else if (typeof cont === 'object') {
-      if (cont[String(driverId)]) return cont[String(driverId)];
-      const found = Object.values(cont).find(isMatch);
-      if (found) return found;
-    }
-  }
-  return null;
-}
 const { calculateFareFromCoordinates } = require("../utils/pricingService");
 
-// GET /passenger/:id/driver - Get assigned driver for latest subscription (ACTIVE first, else most recent)
-exports.getAssignedDriver = asyncHandler(async (req, res) => {
-  const passengerId = String(req.params.id);
+// GET /passenger/subscription/:subscriptionId/driver - Get assigned driver for a subscription
+exports.getAssignedDriverBySubscription = asyncHandler(async (req, res) => {
+  const subscriptionId = String(req.params.subscriptionId);
+  const subscription = await Subscription.findByPk(subscriptionId, { include: [{ model: Contract, as: "contract", include: [{ model: RideSchedule, as: "ride_schedules", where: { is_active: true }, required: false }] }] });
+  if (!subscription) return res.status(404).json({ success: false, message: "Subscription not found" });
 
-  // Check if user can access this passenger's data
-  if (req.user.type === "passenger" && String(req.user.id) !== passengerId) {
+  if (req.user.type === "passenger" && String(req.user.id) !== String(subscription.passenger_id)) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
-  // Find latest ACTIVE subscription, else most recent any status
-  let subscription = await Subscription.findOne({
-    where: { passenger_id: passengerId, status: "ACTIVE" },
-    include: [{
-      model: Contract,
-      as: "contract",
-      include: [{ model: RideSchedule, as: "ride_schedules", where: { is_active: true }, required: false }]
-    }],
-    order: [["createdAt", "DESC"]],
-  });
-
-  if (!subscription) {
-    subscription = await Subscription.findOne({
-      where: { passenger_id: passengerId },
-      include: [{
-        model: Contract,
-        as: "contract",
-        include: [{ model: RideSchedule, as: "ride_schedules", where: { is_active: true }, required: false }]
-      }],
-      order: [["createdAt", "DESC"]],
-    });
-  }
-
-  if (!subscription) {
-    return res.status(404).json({ success: false, message: "No subscription found for this passenger" });
-  }
-
-  // Prefer subscription-level driver assignment, fallback to ride schedule
   const driverId = subscription.driver_id || subscription.contract?.ride_schedules?.[0]?.driver_id;
-  if (!driverId) {
-    return res.status(404).json({ success: false, message: "No driver assigned to this subscription" });
-  }
+  if (!driverId) return res.status(404).json({ success: false, message: "No driver assigned to this subscription" });
 
-  try {
-    const decoded = decodeToken(req);
-    const dTok = findDriverInDecoded(decoded, driverId);
-    let dInfo = null;
-    try { dInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
+  const authHeader = req.headers && req.headers.authorization ? { headers: { Authorization: req.headers.authorization } } : {};
+  let fetched = null;
+  let tokenHelperInfo = null;
+  try { fetched = await getDriverById(driverId, authHeader); } catch (_) {}
+  try { tokenHelperInfo = await getUserInfo(req, driverId, 'driver'); } catch (_) {}
 
-    const subData = subscription.toJSON();
-    const name = (dTok && (dTok.name || dTok.fullName)) || dInfo?.name || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
-    const phone = (dTok && (dTok.phone || dTok.msisdn)) || dInfo?.phone || subData.driver_phone || 'Not available';
-    const email = (dTok && dTok.email) || dInfo?.email || subData.driver_email || 'Not available';
+  const subData = subscription.toJSON();
+  const safe = (v) => v && String(v).trim() !== '' && v !== 'Not available';
+  const name = (fetched && safe(fetched.name) && fetched.name) || (tokenHelperInfo && safe(tokenHelperInfo.name) && tokenHelperInfo.name) || subData.driver_name || `Driver ${String(driverId).slice(-4)}`;
+  const phone = (fetched && safe(fetched.phone) && fetched.phone) || (tokenHelperInfo && safe(tokenHelperInfo.phone) && tokenHelperInfo.phone) || subData.driver_phone || 'Not available';
+  const email = (fetched && safe(fetched.email) && fetched.email) || (tokenHelperInfo && safe(tokenHelperInfo.email) && tokenHelperInfo.email) || subData.driver_email || 'Not available';
+  const assignedDriver = Object.fromEntries(Object.entries({
+    id: String(driverId),
+    name, phone, email,
+    carModel: fetched?.carModel || tokenHelperInfo?.vehicle_info?.carModel || subData.vehicle_info?.car_model || null,
+    carPlate: fetched?.carPlate || tokenHelperInfo?.vehicle_info?.carPlate || subData.vehicle_info?.car_plate || null,
+    carColor: fetched?.carColor || tokenHelperInfo?.vehicle_info?.carColor || subData.vehicle_info?.car_color || null,
+  }).filter(([_, v]) => v != null));
 
-    const v = (dTok && (dTok.vehicle_info || { carModel: dTok.carModel, carPlate: dTok.carPlate, carColor: dTok.carColor, vehicleType: dTok.vehicleType })) || dInfo?.vehicle_info || {};
-    const vehFromSub = subData.vehicle_info || {};
-    const vehicle_info = {
-      carModel: v?.carModel || v?.vehicleType || vehFromSub?.car_model || 'Not available',
-      carPlate: v?.carPlate || vehFromSub?.car_plate || 'Not available',
-      carColor: v?.carColor || vehFromSub?.car_color || 'Not available'
-    };
-
-    return res.json({
-      success: true,
-      data: {
-        passenger_id: passengerId,
-        subscription: {
-          id: subscription.id,
-          status: subscription.status,
-          start_date: subscription.start_date,
-          end_date: subscription.end_date,
-        },
-        assigned_driver: {
-          id: String(driverId),
-          name,
-          phone,
-          email,
-          vehicle_info,
-          type: "driver"
-        },
-      }
-    });
-  } catch (error) {
-    // As a last resort, respond with subscription-stored fields, mapped to top-level
-    const subData = subscription.toJSON();
-    const carModel = (subData.vehicle_info && subData.vehicle_info.car_model) || null;
-    const carPlate = (subData.vehicle_info && subData.vehicle_info.car_plate) || null;
-    const carColor = (subData.vehicle_info && subData.vehicle_info.car_color) || null;
-
-    const fallbackDriverRaw = {
-      id: String(driverId),
-      name: subData.driver_name || `Driver ${String(driverId).slice(-4)}`,
-      phone: subData.driver_phone || 'Not available',
-      email: subData.driver_email || 'Not available',
-      carModel,
-      carPlate,
-      carColor,
-      type: "driver"
-    };
-    const fallbackDriver = Object.fromEntries(Object.entries(fallbackDriverRaw).filter(([_, v]) => v !== null && v !== undefined));
-
-    return res.json({
-      success: true,
-      data: {
-        passenger_id: passengerId,
-        subscription: {
-          id: subscription.id,
-          status: subscription.status,
-          start_date: subscription.start_date,
-          end_date: subscription.end_date,
-        },
-        assigned_driver: fallbackDriver,
-      }
-    });
-  }
+  return res.json({ success: true, data: { subscription_id: subscriptionId, assigned_driver: assignedDriver } });
 });
 
 // PATCH /trip/:id/pickup - Passenger confirms pickup

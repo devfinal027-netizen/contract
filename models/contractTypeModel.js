@@ -10,7 +10,6 @@ const ContractType = sequelize.define("ContractType", {
   name: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    unique: true,
     validate: {
       notEmpty: true,
       len: [1, 100]
@@ -82,15 +81,7 @@ const ContractType = sequelize.define("ContractType", {
 }, {
   tableName: "contract_types",
   timestamps: true,
-  indexes: [
-    {
-      unique: true,
-      fields: ['name']
-    },
-    {
-      fields: ['is_active']
-    }
-  ]
+  indexes: []
 });
 
 module.exports = ContractType;

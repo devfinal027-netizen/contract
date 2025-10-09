@@ -8,7 +8,9 @@ const UPLOADS_FOLDER = path.join(process.cwd(), "uploads");
 const MIME_TYPES = {
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
+  "image/pjpeg": "jpg",
   "image/png": "png",
+  "image/x-png": "png",
   "image/gif": "gif",
   "image/webp": "webp",
   "application/pdf": "pdf",

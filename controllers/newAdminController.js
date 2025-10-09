@@ -219,6 +219,7 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
 
     const subscriptions = await Subscription.findAll({
       where: whereClause,
+      include: [{ model: ContractType, as: 'contractType', attributes: ['id','name'] }],
       order: [['createdAt', 'DESC']],
     });
 
@@ -270,9 +271,10 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
         const today = new Date();
         const daysUntilExpiry = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
         
-        return {
+        const cleaned = {
           ...subData,
           passenger_id: subscription.passenger_id,
+          contract_type_name: subscription.contractType?.name || null,
           passenger_name: passengerInfo?.name || `Passenger ${String(subscription.passenger_id || '').slice(-4)}`,
           passenger_phone: passengerInfo?.phone || 'Not available',
           passenger_email: passengerInfo?.email || 'Not available',
@@ -299,6 +301,11 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
           })),
           trip_count: trips.length,
         };
+
+        // Remove nested contractType and contract_id to avoid redundancy
+        delete cleaned.contractType;
+        delete cleaned.contract_id;
+        return cleaned;
       })
     );
 
@@ -371,10 +378,17 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
       });
     }
 
-    // Update subscription status
+    // Enforce: admin can approve ONLY if payment_status is PAID
+    if (subscription.payment_status !== "PAID") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot approve subscription. Payment status must be PAID, got: ${subscription.payment_status || "null"}`
+      });
+    }
+
+    // Update subscription status only (payment already handled by webhook)
     await Subscription.update({
-      status: "ACTIVE",
-      payment_status: "PAID"
+      status: "ACTIVE"
     }, {
       where: { id: subscriptionId }
     });
@@ -388,7 +402,7 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
 
     res.json({
       success: true,
-      message: "Subscription and payment approved successfully",
+      message: "Subscription approved successfully",
       data: {
         subscription_id: subscriptionId,
         approved_by: adminInfo?.name || String(adminId),
@@ -405,8 +419,7 @@ exports.approveSubscription = asyncHandler(async (req, res) => {
           phone: passengerInfo?.phone || 'Not available',
           email: passengerInfo?.email || 'Not available',
         },
-        new_status: "ACTIVE",
-        payment_status: "PAID"
+        new_status: "ACTIVE"
       }
     });
   } catch (error) {
@@ -441,6 +454,30 @@ exports.deleteSubscriptionByAdmin = asyncHandler(async (req, res) => {
     });
   }
 });
+
+// PUT /admin/subscription/:id - Update a subscription (admin only)
+exports.updateSubscriptionByAdmin = asyncHandler(async (req, res) => {
+  const subscriptionId = String(req.params.id);
+  const allowed = [
+    'pickup_location','dropoff_location','pickup_latitude','pickup_longitude',
+    'dropoff_latitude','dropoff_longitude','start_date','end_date','status','payment_status',
+    'driver_id','driver_name','driver_phone','driver_email','vehicle_info'
+  ];
+  const updateData = {};
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, key)) {
+      updateData[key] = req.body[key];
+    }
+  }
+  const sub = await Subscription.findByPk(subscriptionId);
+  if (!sub) return res.status(404).json({ success: false, message: 'Subscription not found' });
+  await sub.update(updateData);
+  const updated = await Subscription.findByPk(subscriptionId);
+  return res.json({ success: true, message: 'Subscription updated successfully', data: updated });
+});
+
+// PUT /admin/contract-types/:id - Update contract type (already exists via controller)
+// DELETE /admin/contract-types/:id - Delete contract type (already exists via controller)
 
 // GET /admin/trips - Get all trips with filters
 exports.getAllTrips = asyncHandler(async (req, res) => {
@@ -581,6 +618,58 @@ exports.getAllTrips = asyncHandler(async (req, res) => {
       message: "Error fetching trips",
       error: error.message
     });
+  }
+});
+
+// GET /admin/passenger/:id/trips - Trip history for a passenger (admin only)
+exports.getTripsByPassenger = asyncHandler(async (req, res) => {
+  const passengerId = String(req.params.id);
+  try {
+    const trips = await Trip.findAll({
+      where: { passenger_id: passengerId },
+      include: [
+        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'], include: [{ model: ContractType, as: 'contractType', attributes: ['name'] }] },
+        { model: TripSchedule, as: "schedule", required: false }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    const mapped = trips.map(t => {
+      const j = t.toJSON();
+      if (j.subscription && j.subscription.contractType) {
+        j.subscription.contract_type_name = j.subscription.contractType.name || null;
+        delete j.subscription.contractType;
+      }
+      return j;
+    });
+    return res.json({ success: true, data: { passenger_id: passengerId, trips: mapped } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Error fetching passenger trips", error: error.message });
+  }
+});
+
+// GET /admin/driver/:id/trips - Trip history for a driver (admin only)
+exports.getTripsByDriver = asyncHandler(async (req, res) => {
+  const driverId = String(req.params.id);
+  try {
+    const trips = await Trip.findAll({
+      where: { driver_id: driverId },
+      include: [
+        { model: Subscription, as: "subscription", attributes: ['id', 'contract_type_id', 'status', 'payment_status'], include: [{ model: ContractType, as: 'contractType', attributes: ['name'] }] },
+        { model: TripSchedule, as: "schedule", required: false }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    const mapped = trips.map(t => {
+      const j = t.toJSON();
+      if (j.subscription && j.subscription.contractType) {
+        j.subscription.contract_type_name = j.subscription.contractType.name || null;
+        delete j.subscription.contractType;
+      }
+      return j;
+    });
+    return res.json({ success: true, data: { driver_id: driverId, trips: mapped } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Error fetching driver trips", error: error.message });
   }
 });
 

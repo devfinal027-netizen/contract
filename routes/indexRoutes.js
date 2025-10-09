@@ -6,7 +6,7 @@ const { authenticate, authorize } = require("../middleware/auth");
 // Import all route files
 const contractRoutes = require("./contractRoutes");
 const discountRoutes = require("./discountRoutes");
-// const paymentRoutes = require("./paymentRoutes"); // disabled
+const paymentRoutes = require("./paymentRoutes");
 const subscriptionRoutes = require("./subscriptionRoutes");
 const scheduleRoutes = require("./scheduleRoutes");
 const tripRoutes = require("./tripRoutes");
@@ -15,13 +15,19 @@ const driverRoutes = require("./driverRoutes");
 const adminRoutes = require("./adminRoutes");
 const contractTypeRoutes = require("./contractTypeRoutes");
 const paymentOptionRoutes = require("./paymentOptionRoutes");
+// legacy separated payments removed in favor of single manual + SantimPay flows
+const webhookRoutes = require("./webhookRoutes");
 
 // New workflow routes
 const newSubscriptionRoutes = require("./newSubscriptionRoutes");
 const walletRoutes = require("./walletRoutes");
 // using newAdminController via adminRoutes only
 
-// ✅ all routes require authentication
+// ✅ all routes require authentication except webhooks
+// Webhook routes (no authentication required for external webhooks)
+router.use("/webhook", webhookRoutes);
+
+// All other routes require authentication
 router.use(authenticate);
 
 // Mount routes with appropriate prefixes
@@ -29,8 +35,8 @@ router.use(authenticate);
 router.use("/contract-types", contractTypeRoutes);
 router.use("/discounts", authorize("admin"), discountRoutes);
 router.use("/contracts", contractRoutes);
-// Payments removed in favor of SantimPay wallet topup integration
-// router.use("/payments", paymentRoutes);
+// Manual payments (receipt upload) coexist alongside SantimPay
+router.use("/payments/manual", paymentRoutes);
 router.use("/subscriptions", subscriptionRoutes);
 router.use("/schedules", scheduleRoutes);
 router.use("/trips", tripRoutes);
