@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-const logger = require('../utils/logger');
-
 // Public webhook echo endpoint
 router.post('/public', (req, res) => {
   return res.json({
