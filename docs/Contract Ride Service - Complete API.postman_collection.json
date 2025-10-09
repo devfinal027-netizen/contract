@@ -184,11 +184,11 @@
           "item": [
             {
               "name": "Create Subscription",
-              "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"contract_type_id\": \"{{contractTypeId}}\",\n  \"pickup_location\": \"Addis Ababa\",\n  \"dropoff_location\": \"Bole\",\n  \"pickup_time\": \"08:00\",\n  \"days_of_week\": [\"monday\", \"tuesday\", \"wednesday\", \"thursday\", \"friday\"]\n}" }, "url": { "raw": "{{baseUrl}}/subscription/create", "host": ["{{baseUrl}}"], "path": ["subscription","create"] } }
+              "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"contract_id\": \"{{contractId}}\",\n  \"pickup_location\": \"Bole International Airport\",\n  \"dropoff_location\": \"Addis Ababa University\",\n  \"pickup_latitude\": 8.9806,\n  \"pickup_longitude\": 38.7578,\n  \"dropoff_latitude\": 9.0365,\n  \"dropoff_longitude\": 38.7578,\n  \"start_date\": \"2024-01-01\",\n  \"end_date\": \"2024-01-31\"\n}" }, "url": { "raw": "{{baseUrl}}/subscription/create", "host": ["{{baseUrl}}"], "path": ["subscription","create"] } }
             },
             {
               "name": "Process Subscription Payment",
-              "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "body": { "mode": "formdata", "formdata": [{ "key": "amount", "value": "100", "type": "text" }, { "key": "payment_option_id", "value": "{{paymentOptionId}}", "type": "text" }] }, "url": { "raw": "{{baseUrl}}/subscription/{{subscriptionId}}/payment", "host": ["{{baseUrl}}"], "path": ["subscription","{{subscriptionId}}","payment"] } }
+              "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"payment_option_id\": \"{{paymentOptionId}}\"\n}" }, "url": { "raw": "{{baseUrl}}/subscription/{{subscriptionId}}/payment", "host": ["{{baseUrl}}"], "path": ["subscription","{{subscriptionId}}","payment"] } }
             },
             {
               "name": "Get My Subscriptions",
@@ -257,7 +257,17 @@
                 { "key": "payment_method", "value": "Manual Bank Transfer", "type": "text" },
                 { "key": "transaction_reference", "value": "BANK-TXN-12345", "type": "text" },
                 { "key": "receipt_image", "type": "file", "src": [] }
-              ] }, "url": { "raw": "{{baseUrl}}/payments/manual", "host": ["{{baseUrl}}"], "path": ["payments","manual"] } }
+              ] }, "url": { "raw": "{{baseUrl}}/payments/manual", "host": ["{{baseUrl}}"], "path": ["payments","manual"] } },
+              "response": [
+                {
+                  "name": "201 Created",
+                  "originalRequest": {},
+                  "status": "Created",
+                  "code": 201,
+                  "_postman_previewlanguage": "json",
+                  "body": "{\n  \"success\": true,\n  \"message\": \"Payment submitted for admin approval\",\n  \"paymentId\": \"{{paymentId}}\"\n}"
+                }
+              ]
             },
             {
               "name": "List Payment Options",

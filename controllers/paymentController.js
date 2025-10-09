@@ -140,6 +140,7 @@ exports.createPayment = asyncHandler(async (req, res) => {
   res.status(201).json({ 
     success: true, 
     message: "Payment submitted for admin approval",
+    paymentId: payment.id,
     data: payment 
   });
 });
