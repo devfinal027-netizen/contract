@@ -57,9 +57,9 @@
             { "name": "Create Payment Option", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Telebirr\",\n  \"logo\": \"https://.../telebirr.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options", "host": ["{{baseUrl}}"], "path": ["payments","options"] } } },
             { "name": "Update Payment Option", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Telebirr Updated\",\n  \"logo\": \"https://.../telebirr-new.png\"\n}" }, "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } } },
             { "name": "Delete Payment Option", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } } },
-            { "name": "All Passenger Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/admin/transactions", "host": ["{{baseUrl}}"], "path": ["wallet","admin","transactions"] } } },
-            { "name": "Get Passenger Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/transactions/{{passengerId}}", "host": ["{{baseUrl}}"], "path": ["wallet","transactions","{{passengerId}}"] } } },
-            { "name": "Get Passenger Wallet (Balances)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/admin/balances", "host": ["{{baseUrl}}"], "path": ["wallet","admin","balances"] } } }
+            { "name": "Get All Wallet Balances", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/admin/balances", "host": ["{{baseUrl}}"], "path": ["wallet","admin","balances"] } } },
+            { "name": "Get All Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/admin/transactions", "host": ["{{baseUrl}}"], "path": ["wallet","admin","transactions"] } } },
+            { "name": "Get User Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/transactions/{{passengerId}}", "host": ["{{baseUrl}}"], "path": ["wallet","transactions","{{passengerId}}"] } } }
           ]
         },
         {
@@ -120,6 +120,7 @@
         {
           "name": "Wallet",
           "item": [
+            { "name": "Wallet Topup", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"amount\": 100,\n  \"paymentMethod\": \"Telebirr\",\n  \"reason\": \"Wallet Topup\"\n}" }, "url": { "raw": "{{baseUrl}}/wallet/topup", "host": ["{{baseUrl}}"], "path": ["wallet","topup"] } } },
             { "name": "My Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/wallet/transactions", "host": ["{{baseUrl}}"], "path": ["wallet","transactions"] } } }
           ]
         },
@@ -140,33 +141,6 @@
         { "name": "Get Active Contract Types", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/active", "host": ["{{baseUrl}}"], "path": ["contract-types","active"] } } },
         { "name": "Get Contract Type by ID", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/contract-types/{{contractTypeId}}", "host": ["{{baseUrl}}"], "path": ["contract-types","{{contractTypeId}}"] } } }
       ]
-    },
-    {
-      "name": "Driver",
-      "item": [
-        {
-          "name": "Authentication",
-          "item": [
-            { "name": "Driver Login", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"username\": \"driver1\",\n  \"password\": \"driver123\"\n}" }, "url": { "raw": "{{authUrl}}/auth/driver/login", "host": ["{{authUrl}}"], "path": ["auth","driver","login"] } } }
-          ]
-        },
-        {
-          "name": "Passengers & Schedule",
-          "item": [
-            { "name": "Get My Passengers", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{driverToken}}" }], "url": { "raw": "{{baseUrl}}/driver/{{driverId}}/passengers", "host": ["{{baseUrl}}"], "path": ["driver","{{driverId}}","passengers"] } } },
-            { "name": "Get My Schedule", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{driverToken}}" }], "url": { "raw": "{{baseUrl}}/driver/{{driverId}}/schedule", "host": ["{{baseUrl}}"], "path": ["driver","{{driverId}}","schedule"] } } }
-          ]
-        },
-        {
-          "name": "Trips",
-          "item": [
-            { "name": "Create Trip", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{driverToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"subscription_id\": \"{{subscriptionId}}\",\n  \"driver_id\": \"{{driverId}}\"\n}" }, "url": { "raw": "{{baseUrl}}/trip", "host": ["{{baseUrl}}"], "path": ["trip"] } } },
-            { "name": "Start Trip", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{driverToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Starting\"\n}" }, "url": { "raw": "{{baseUrl}}/trip/{{tripId}}/start", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}","start"] } } },
-            { "name": "Complete Trip", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{driverToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Done\",\n  \"rating\": 5\n}" }, "url": { "raw": "{{baseUrl}}/trip/{{tripId}}/complete", "host": ["{{baseUrl}}"], "path": ["trip","{{tripId}}","complete"] } } },
-            { "name": "Trip History", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{driverToken}}" }], "url": { "raw": "{{baseUrl}}/driver/{{driverId}}/triphistory", "host": ["{{baseUrl}}"], "path": ["driver","{{driverId}}","triphistory"] } } }
-          ]
-        }
-      ]
     }
   ],
   "variable": [
@@ -174,8 +148,6 @@
     { "key": "authUrl", "value": "https://authservice.capitalinvestmenttradingplc.com/api", "type": "string" },
     { "key": "authToken", "value": "", "type": "string" },
     { "key": "passengerToken", "value": "", "type": "string" },
-    { "key": "driverToken", "value": "", "type": "string" },
-    { "key": "driverId", "value": "driver-uuid-456", "type": "string" },
     { "key": "passengerId", "value": "passenger-uuid-123", "type": "string" },
     { "key": "subscriptionId", "value": "", "type": "string" },
     { "key": "paymentId", "value": "", "type": "string" },

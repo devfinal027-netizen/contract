@@ -55,16 +55,14 @@ exports.topup = async (req, res) => {
     if (!msisdn) return res.status(400).json({ message: "Invalid phone format in token. Required: +2519XXXXXXXX" });
 
     const userId = String(req.user.id);
-    const role = req.user.type;
 
-    let wallet = await Wallet.findOne({ where: { userId, role } });
-    if (!wallet) wallet = await Wallet.create({ userId, role, balance: 0 });
+    let wallet = await Wallet.findOne({ where: { userId } });
+    if (!wallet) wallet = await Wallet.create({ userId, balance: 0 });
 
     const txId = randomUUID();
     const tx = await Transaction.create({ 
       refId: String(txId), 
       userId, 
-      role,
       amount, 
       type: "credit", 
       method: "santimpay", 
@@ -101,14 +99,14 @@ exports.topup = async (req, res) => {
       }
     }
     
-    // Try driver payment preferences (for drivers only)
-    if (!methodForGateway && role === 'driver') {
+    // Try user payment preferences
+    if (!methodForGateway) {
       try {
         // This would require integration with your user service
         // For now, we'll use a default or throw an error
-        console.log('Driver payment preferences not implemented yet');
+        console.log('User payment preferences not implemented yet');
       } catch (e) {
-        console.error('Error resolving driver payment preferences:', e);
+        console.error('Error resolving user payment preferences:', e);
       }
     }
     
@@ -267,36 +265,23 @@ exports.webhook = async (req, res) => {
         tx.type === "credit"
           ? n(data.adjustedAmount) ?? n(data.amount) ?? tx.amount
           : n(data.amount) ?? n(data.adjustedAmount) ?? tx.amount;
+      
+      // Find or create wallet and update balance
+      let wallet = await Wallet.findOne({ where: { userId: tx.userId } });
+      if (!wallet) {
+        wallet = await Wallet.create({ userId: tx.userId, balance: 0 });
+      }
+      
       if (tx.type === "credit") {
-        // If this is a provider deposit for drivers, convert to package using dynamic commissionRate
-        let delta = providerAmount;
-        try {
-          // Apply commission rate for drivers
-          let commissionRate = Number(process.env.COMMISSION_RATE || 15);
-          if (tx.role === 'driver') {
-            // Simple commission calculation: amount * (1 - commissionRate/100)
-            delta = providerAmount * (1 - commissionRate / 100);
-          }
-        } catch (_) {}
-        // Find or create wallet and update balance
-        let wallet = await Wallet.findOne({ where: { userId: tx.userId, role: tx.role } });
-        if (!wallet) {
-          wallet = await Wallet.create({ userId: tx.userId, role: tx.role, balance: 0 });
-        }
-        await wallet.update({ balance: parseFloat(wallet.balance) + delta });
+        await wallet.update({ balance: parseFloat(wallet.balance) + providerAmount });
       } else if (tx.type === "debit") {
-        // Find or create wallet and update balance for debit
-        let wallet = await Wallet.findOne({ where: { userId: tx.userId, role: tx.role } });
-        if (!wallet) {
-          wallet = await Wallet.create({ userId: tx.userId, role: tx.role, balance: 0 });
-        }
         await wallet.update({ balance: parseFloat(wallet.balance) - providerAmount });
       }
+      
       if (process.env.WALLET_WEBHOOK_DEBUG === "1") {
         // eslint-disable-next-line no-console
         console.log("[wallet-webhook] wallet mutated:", {
           userId: tx.userId,
-          role: tx.role,
           type: tx.type,
           delta: tx.type === "credit" ? providerAmount : -providerAmount,
         });
@@ -349,7 +334,7 @@ exports.adminBalances = async (req, res) => {
     if (req.user.type !== 'admin') return res.status(403).json({ message: 'Access denied' });
     const wallets = await Wallet.findAll({
       where: { isActive: true },
-      attributes: ['userId', 'role', 'balance', 'currency', 'lastTransactionAt']
+      attributes: ['userId', 'balance', 'currency', 'lastTransactionAt']
     });
     return res.json({ balances: wallets });
   } catch (e) { return res.status(500).json({ message: e.message }); }
@@ -363,7 +348,7 @@ exports.adminTransactions = async (req, res) => {
       include: [{
         model: Wallet,
         as: 'wallet',
-        attributes: ['userId', 'role']
+        attributes: ['userId']
       }]
     });
     return res.json({ transactions: rows });
@@ -372,87 +357,7 @@ exports.adminTransactions = async (req, res) => {
 
 exports.withdraw = async (req, res) => {
   try {
-    const {
-      amount,
-      destination,
-      method = "santimpay",
-      paymentMethod,
-      reason = "Wallet Withdrawal",
-    } = req.body || {};
-    
-    if (!amount || amount <= 0)
-      return res.status(400).json({ message: "amount must be > 0" });
-
-    const userId = String(req.user.id);
-    const role = "driver";
-    
-    if (req.user.type !== "driver")
-      return res.status(403).json({ message: "Only drivers can withdraw" });
-
-    const wallet = await Wallet.findOne({ where: { userId, role } });
-    if (!wallet || parseFloat(wallet.balance) < amount)
-      return res.status(400).json({ message: "Insufficient balance" });
-
-    // Create withdrawal transaction
-    const tx = await Transaction.create({
-      userId,
-      role,
-      amount,
-      type: "debit",
-      method,
-      status: "pending",
-      metadata: { destination, reason },
-    });
-
-    // Normalize Ethiopian MSISDN
-    const msisdn = normalizeMsisdnEt(
-      destination || req.user.phone || req.user.phoneNumber
-    );
-    if (!msisdn)
-      return res.status(400).json({ message: "Invalid destination phone" });
-
-    const notifyUrl =
-      process.env.SANTIMPAY_WITHDRAW_NOTIFY_URL ||
-      process.env.SANTIMPAY_NOTIFY_URL ||
-      `${process.env.PUBLIC_BASE_URL || ""}/wallet/webhook`;
-
-    try {
-      // Resolve payment method
-      let methodForGateway = null;
-      if (paymentMethod) {
-        methodForGateway = normalizePaymentMethod(paymentMethod);
-      } else {
-        // Try to get from driver preferences (would need user service integration)
-        methodForGateway = "Telebirr"; // Default fallback
-      }
-
-      const gw = await santim.payoutTransfer({
-        id: tx.refId,
-        amount,
-        paymentReason: reason,
-        phoneNumber: msisdn,
-        paymentMethod: methodForGateway,
-        notifyUrl,
-      });
-
-      const gwTxnId = gw?.TxnId || gw?.txnId || gw?.data?.TxnId || gw?.data?.txnId;
-      await Transaction.update(
-        { txnId: gwTxnId, metadata: { ...tx.metadata, gatewayResponse: gw } },
-        { where: { refId: tx.refId } }
-      );
-
-      return res.status(202).json({
-        message: "Withdrawal initiated",
-        transactionId: tx.refId,
-        gatewayTxnId: gwTxnId,
-      });
-    } catch (err) {
-      await Transaction.update(
-        { status: "failed", metadata: { ...tx.metadata, gatewayError: err.message } },
-        { where: { refId: tx.refId } }
-      );
-      return res.status(502).json({ message: `Payout initiation failed: ${err.message}` });
-    }
+    return res.status(501).json({ message: "Withdraw not implemented" });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }

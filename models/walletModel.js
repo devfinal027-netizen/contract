@@ -10,12 +10,8 @@ const Wallet = sequelize.define("Wallet", {
   userId: {
     type: DataTypes.STRING,
     allowNull: false,
+    unique: true,
     comment: "User ID from token service",
-  },
-  role: {
-    type: DataTypes.ENUM("driver", "passenger", "admin"),
-    allowNull: false,
-    comment: "User role",
   },
   balance: {
     type: DataTypes.DECIMAL(10, 2),
@@ -50,17 +46,8 @@ const Wallet = sequelize.define("Wallet", {
   timestamps: true,
   indexes: [
     {
-      unique: true,
-      fields: ["userId", "role"],
-      name: "unique_user_role",
-    },
-    {
       fields: ["userId"],
       name: "idx_user_id",
-    },
-    {
-      fields: ["role"],
-      name: "idx_role",
     },
     {
       fields: ["isActive"],
