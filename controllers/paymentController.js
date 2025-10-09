@@ -72,15 +72,15 @@ exports.createPaymentForSubscription = async (subscriptionId, paymentData, file 
   }
 };
 
-// CREATE with file upload (legacy endpoint)
+// CREATE with file upload (manual payment submission)
 exports.createPayment = asyncHandler(async (req, res) => {
   const { subscription_id, amount, payment_method, transaction_reference, due_date } = req.body;
 
-  // Validate required fields
-  if (!subscription_id || !amount || !payment_method) {
+  // Validate required fields (amount optional - inferred from subscription if missing)
+  if (!subscription_id || !payment_method) {
     return res.status(400).json({
       success: false,
-      message: "subscription_id, amount, and payment_method are required"
+      message: "subscription_id and payment_method are required"
     });
   }
 
@@ -100,11 +100,12 @@ exports.createPayment = asyncHandler(async (req, res) => {
     });
   }
 
+  const inferredAmount = amount != null && amount !== '' ? parseFloat(amount) : parseFloat(subscription.final_fare || subscription.total_fare || 0);
   const paymentData = {
     subscription_id,
     contract_id: subscription.contract_id,
     passenger_id: req.user.id,
-    amount: parseFloat(amount),
+    amount: inferredAmount,
     payment_method,
     transaction_reference,
     due_date: due_date || new Date(),
