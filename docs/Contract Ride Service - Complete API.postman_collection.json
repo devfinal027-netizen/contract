@@ -110,7 +110,7 @@
             {
               "name": "Delete Payment Option",
               "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }], "url": { "raw": "{{baseUrl}}/payments/options/{{paymentOptionId}}", "host": ["{{baseUrl}}"], "path": ["payments","options","{{paymentOptionId}}"] } }
-            },
+            }
             
           ]
         },
@@ -197,7 +197,6 @@
             {
               "name": "Get Pending Subscriptions",
               "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{passengerToken}}" }], "url": { "raw": "{{baseUrl}}/subscription/pending", "host": ["{{baseUrl}}"], "path": ["subscription","pending"] } }
-            },
             }
           ]
         },
