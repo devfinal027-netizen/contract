@@ -302,7 +302,8 @@ exports.getAllSubscriptions = asyncHandler(async (req, res) => {
           trip_count: trips.length,
         };
 
-        // Remove contract_id to avoid redundancy; contract_type_name provides context
+        // Remove nested contractType and contract_id to avoid redundancy
+        delete cleaned.contractType;
         delete cleaned.contract_id;
         return cleaned;
       })
